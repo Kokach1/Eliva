@@ -64,7 +64,7 @@ Return ONLY a JSON object with this structure:
 
 Strict: No markdown wrapping around the JSON, no extra text, return just the raw JSON object.`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
     method: 'POST',

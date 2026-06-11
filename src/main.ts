@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
 import { loadConfig, saveConfig, AppConfig } from './config';
 import { generateLinkedInPost } from './gemini';
-import { checkLinkedInSession, publishLinkedInPost } from './linkedin';
+import { checkLinkedInSession, publishLinkedInPost, launchLinkedInBrowserSession } from './linkedin';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -86,5 +87,25 @@ ipcMain.handle('select-image', async () => {
   if (result.canceled || result.filePaths.length === 0) {
     return null;
   }
-  return result.filePaths[0];
+  
+  const filePath = result.filePaths[0];
+  try {
+    const data = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).slice(1);
+    const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+    const base64 = `data:${mime};base64,${data.toString('base64')}`;
+    return { filePath, base64 };
+  } catch (err) {
+    console.error('Failed to read image to base64:', err);
+    return { filePath, base64: null };
+  }
+});
+
+ipcMain.handle('launch-browser-session', async () => {
+  const onLog = (log: { status: 'info' | 'success' | 'error'; message: string }) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('automation-log', log);
+    }
+  };
+  return await launchLinkedInBrowserSession(onLog);
 });

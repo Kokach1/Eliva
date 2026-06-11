@@ -29,6 +29,7 @@ const publishBtn = document.getElementById('publish-btn');
 
 const statusBadge = document.getElementById('status-badge');
 const verifySessionQuickBtn = document.getElementById('verify-session-quick-btn');
+const launchBrowserQuickBtn = document.getElementById('launch-browser-quick-btn');
 
 // Settings DOM Elements
 const settingsApiKey = document.getElementById('settings-api-key');
@@ -36,6 +37,7 @@ const settingsProfileDir = document.getElementById('settings-profile-dir');
 const settingsDefaultStyle = document.getElementById('settings-default-style');
 const saveSettingsBtn = document.getElementById('save-settings-btn');
 const checkSessionBtn = document.getElementById('check-session-btn');
+const settingsLaunchBrowserBtn = document.getElementById('settings-launch-browser-btn');
 
 // Toast
 const toastNotification = document.getElementById('toast-notification');
@@ -103,9 +105,9 @@ function setupImageSelection() {
     if (currentImagePath) return;
 
     try {
-      const filePath = await window.elivaAPI.selectImage();
-      if (filePath) {
-        handleImageLoaded(filePath);
+      const res = await window.elivaAPI.selectImage();
+      if (res && res.filePath) {
+        handleImageLoaded(res.filePath, res.base64);
       }
     } catch (err) {
       showToast('Failed to open image selector', 'error');
@@ -135,7 +137,8 @@ function setupImageSelection() {
       const ext = file.name.split('.').pop().toLowerCase();
       
       if (validExtensions.includes(ext)) {
-        handleImageLoaded(file.path);
+        const objectUrl = URL.createObjectURL(file);
+        handleImageLoaded(file.path, objectUrl);
       } else {
         showToast('Unsupported format. Please drop JPG, PNG, or WEBP.', 'error');
       }
@@ -152,9 +155,9 @@ function setupImageSelection() {
   });
 }
 
-function handleImageLoaded(filePath) {
+function handleImageLoaded(filePath, previewSrc) {
   currentImagePath = filePath;
-  imagePreviewImg.src = `file:///${filePath.replace(/\\/g, '/')}`;
+  imagePreviewImg.src = previewSrc || filePath;
   previewWrapper.classList.remove('hidden');
   dropZonePrompt.classList.add('hidden');
   showToast('Image uploaded successfully!', 'success');
@@ -342,6 +345,30 @@ function setupSettingsHandlers() {
 
   checkSessionBtn.addEventListener('click', verifySession);
   verifySessionQuickBtn.addEventListener('click', verifySession);
+
+  // Open visible browser without timeout session manager
+  const openBrowserSession = async () => {
+    automationLogs.innerHTML = '';
+    automationModal.classList.remove('hidden');
+    closeModalBtn.setAttribute('disabled', 'true');
+    closeModalBtn.textContent = 'Session Running...';
+
+    try {
+      await window.elivaAPI.launchBrowserSession();
+      showToast('Browser session ended.', 'info');
+      // Do a quick, silent check on session status after closing the browser
+      const active = await window.elivaAPI.checkSession();
+      updateStatusDisplay(active);
+    } catch (err) {
+      showToast('Failed to start browser: ' + err.message, 'error');
+    } finally {
+      closeModalBtn.removeAttribute('disabled');
+      closeModalBtn.textContent = 'Close Console';
+    }
+  };
+
+  launchBrowserQuickBtn.addEventListener('click', openBrowserSession);
+  settingsLaunchBrowserBtn.addEventListener('click', openBrowserSession);
 }
 
 function updateStatusDisplay(isActive) {

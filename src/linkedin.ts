@@ -169,3 +169,45 @@ export async function publishLinkedInPost(
     return false;
   }
 }
+
+export async function launchLinkedInBrowserSession(
+  onLog: LogCallback
+): Promise<void> {
+  const config = loadConfig();
+  const profileDir = config.linkedinProfileDir;
+
+  onLog({ status: 'info', message: 'Launching visible Chromium with NO TIMELIMIT...' });
+  onLog({ status: 'info', message: 'Close the Chromium browser window manually when finished.' });
+  let context: BrowserContext | null = null;
+  try {
+    context = await chromium.launchPersistentContext(profileDir, {
+      headless: false,
+      args: ['--start-maximized'],
+      viewport: null
+    });
+
+    const page = await context.newPage();
+    onLog({ status: 'info', message: 'Navigating to LinkedIn...' });
+    await page.goto('https://www.linkedin.com/', { waitUntil: 'domcontentloaded' });
+
+    // Keep context open until the user closes it manually
+    await new Promise<void>((resolve) => {
+      if (context) {
+        context.on('close', () => {
+          onLog({ status: 'success', message: 'Browser session closed manually.' });
+          resolve();
+        });
+      } else {
+        resolve();
+      }
+    });
+
+  } catch (err: any) {
+    onLog({ status: 'error', message: `Session Launch Error: ${err.message || err}` });
+    if (context) {
+      try {
+        await context.close();
+      } catch {}
+    }
+  }
+}

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('elivaAPI', {
   checkSession: () => ipcRenderer.invoke('check-session'),
   publishPost: (content: string, imagePath: string | null) => ipcRenderer.invoke('publish-post', content, imagePath),
   selectImage: () => ipcRenderer.invoke('select-image'),
+  launchBrowserSession: () => ipcRenderer.invoke('launch-browser-session'),
   onAutomationLog: (callback: (log: { status: string; message: string }) => void) => {
     const subscription = (_event: any, value: any) => callback(value);
     ipcRenderer.on('automation-log', subscription);
