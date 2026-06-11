@@ -8,6 +8,22 @@ export interface AutomationLog {
 
 type LogCallback = (log: AutomationLog) => void;
 
+async function verifyLoginState(page: Page): Promise<boolean> {
+  try {
+    // Wait for feed selector (global-nav) OR login elements to appear
+    await Promise.any([
+      page.waitForSelector('.global-nav', { timeout: 15000 }),
+      page.waitForSelector('#username, input[name="session_key"], form.login__form, button[type="submit"]', { timeout: 15000 })
+    ]);
+  } catch (e) {
+    // Ignore timeout and check whatever exists
+  }
+
+  const url = page.url();
+  const navPresent = (await page.$('.global-nav')) !== null;
+  return url.includes('/feed') && navPresent;
+}
+
 export async function checkLinkedInSession(
   onLog: LogCallback
 ): Promise<boolean> {
@@ -27,11 +43,8 @@ export async function checkLinkedInSession(
     onLog({ status: 'info', message: 'Navigating to LinkedIn Feed...' });
     await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
 
-    // Wait a bit to check if we are logged in or redirected to login
-    await page.waitForTimeout(4000);
-
-    const url = page.url();
-    if (url.includes('/feed') && (await page.$('.global-nav'))) {
+    const active = await verifyLoginState(page);
+    if (active) {
       onLog({ status: 'success', message: 'Active session detected. You are already logged in!' });
       await context.close();
       return true;
@@ -86,10 +99,8 @@ export async function publishLinkedInPost(
     onLog({ status: 'info', message: 'Navigating to LinkedIn feed...' });
     await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
 
-    // Check login
-    await page.waitForTimeout(4000);
-    const url = page.url();
-    if (!url.includes('/feed') || !(await page.$('.global-nav'))) {
+    const active = await verifyLoginState(page);
+    if (!active) {
       onLog({ status: 'error', message: 'LinkedIn session is not active. Please authenticate via settings first!' });
       await context.close();
       return false;
