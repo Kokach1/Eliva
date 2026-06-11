@@ -1,0 +1,8 @@
+node_modules/
+dist/
+linkedin-profile/
+config.json
+.DS_Store
+*.log
+claud/
+

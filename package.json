@@ -1,0 +1,20 @@
+{
+  "name": "eliva",
+  "version": "1.0.0",
+  "description": "Windows desktop application to generate and post on LinkedIn",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "start": "tsc && electron .",
+    "postinstall": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.42.0"
+  },
+  "devDependencies": {
+    "electron": "^29.1.0",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.24"
+  }
+}
