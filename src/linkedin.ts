@@ -108,44 +108,68 @@ export async function publishLinkedInPost(
 
     onLog({ status: 'info', message: 'Opening post creator modal...' });
     
-    // Click the trigger/button to start a post
-    // Selection can match "Start a post" text or specific selectors
-    const startPostSelector = 'button.share-box-feed-entry__trigger, button.artdeco-button--muted.share-box-feed-entry__trigger, button:has-text("Start a post")';
-    await page.waitForSelector(startPostSelector, { timeout: 10000 });
-    await page.click(startPostSelector);
-    onLog({ status: 'info', message: 'Post composer modal opened.' });
-
-    // Wait for the modal editor
-    const editorSelector = 'div.ql-editor, div[role="textbox"][aria-label="Editor"]';
-    await page.waitForSelector(editorSelector, { timeout: 10000 });
+    let isModalOpened = false;
 
     if (imagePath) {
-      onLog({ status: 'info', message: 'Adding image upload...' });
+      const feedPhotoSelector = '[data-view-name="share-sharebox-bottom-bar-image"], .share-box-feed-entry__trigger[data-control-name="share_media"]';
+      onLog({ status: 'info', message: 'Checking for quick Photo button on feed...' });
+      const quickPhotoBtn = await page.$(feedPhotoSelector);
       
-      // Click the media upload button
-      // On LinkedIn desktop, it is typically a button with aria-label containing "Add media" or "Add a photo"
-      // or button with class containing share-promoted-detour-button
-      const mediaBtnSelector = 'button[aria-label="Add media"], button[aria-label="Add a photo"], button.share-promoted-detour-button';
-      await page.waitForSelector(mediaBtnSelector, { timeout: 5000 });
-      
-      // We will set up file chooser trigger
-      const [fileChooser] = await Promise.all([
-        page.waitForEvent('filechooser'),
-        page.click(mediaBtnSelector)
-      ]);
-      
-      onLog({ status: 'info', message: `Uploading file: ${imagePath}` });
-      await fileChooser.setFiles(imagePath);
-
-      onLog({ status: 'info', message: 'Waiting for media editor modal and clicking Next...' });
-      // LinkedIn shows a preview editor with a "Next" button (sometimes "Done" or "Apply")
-      const nextBtnSelector = 'div.share-box-footer button:has-text("Next"), div.share-media-editor__footer button:has-text("Next"), button.share-box-footer__primary-btn, button:has-text("Done")';
-      await page.waitForSelector(nextBtnSelector, { timeout: 15000 });
-      await page.click(nextBtnSelector);
-      
-      // Give it a brief moment to close media modal and return to compose modal
-      await page.waitForTimeout(2000);
+      if (quickPhotoBtn) {
+        onLog({ status: 'info', message: 'Quick Photo button found. Initiating file upload...' });
+        try {
+          const [fileChooser] = await Promise.all([
+            page.waitForEvent('filechooser', { timeout: 8000 }),
+            quickPhotoBtn.click()
+          ]);
+          onLog({ status: 'info', message: `Uploading file: ${imagePath}` });
+          await fileChooser.setFiles(imagePath);
+          
+          onLog({ status: 'info', message: 'Waiting for media preview modal and clicking Next...' });
+          const nextBtnSelector = 'div.share-box-footer button:has-text("Next"), div.share-media-editor__footer button:has-text("Next"), button.share-box-footer__primary-btn, button:has-text("Done"), button:has-text("Apply")';
+          await page.waitForSelector(nextBtnSelector, { timeout: 15000 });
+          await page.click(nextBtnSelector);
+          
+          isModalOpened = true;
+          await page.waitForTimeout(2000);
+        } catch (e: any) {
+          onLog({ status: 'info', message: `Quick photo button failed or timed out: ${e.message || e}. Falling back to standard flow...` });
+        }
+      }
     }
+
+    if (!isModalOpened) {
+      // Standard flow: click "Start a post" first
+      const startPostSelector = '[data-view-name="share-sharebox-focus"], button.share-box-feed-entry__trigger, button.artdeco-button--muted.share-box-feed-entry__trigger, button:has-text("Start a post")';
+      await page.waitForSelector(startPostSelector, { timeout: 10000 });
+      await page.click(startPostSelector);
+      onLog({ status: 'info', message: 'Post composer modal opened.' });
+      
+      if (imagePath) {
+        onLog({ status: 'info', message: 'Adding image upload inside modal...' });
+        const mediaBtnSelector = 'button[aria-label="Add media"], button[aria-label="Add a photo"], [data-view-name="share-sharebox-bottom-bar-image"], button.share-promoted-detour-button';
+        await page.waitForSelector(mediaBtnSelector, { timeout: 10000 });
+        
+        const [fileChooser] = await Promise.all([
+          page.waitForEvent('filechooser'),
+          page.click(mediaBtnSelector)
+        ]);
+        
+        onLog({ status: 'info', message: `Uploading file: ${imagePath}` });
+        await fileChooser.setFiles(imagePath);
+
+        onLog({ status: 'info', message: 'Waiting for media editor modal and clicking Next...' });
+        const nextBtnSelector = 'div.share-box-footer button:has-text("Next"), div.share-media-editor__footer button:has-text("Next"), button.share-box-footer__primary-btn, button:has-text("Done"), button:has-text("Apply")';
+        await page.waitForSelector(nextBtnSelector, { timeout: 15000 });
+        await page.click(nextBtnSelector);
+        
+        await page.waitForTimeout(2000);
+      }
+    }
+
+    // Wait for the modal editor text box
+    const editorSelector = 'div.ql-editor, div[role="textbox"][aria-label="Editor"], div[role="textbox"]';
+    await page.waitForSelector(editorSelector, { timeout: 15000 });
 
     // Now write the text content into editor
     onLog({ status: 'info', message: 'Inserting post text...' });
