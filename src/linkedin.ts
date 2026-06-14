@@ -164,10 +164,11 @@ export async function publishLinkedInPost(
     await page.waitForTimeout(1000);
 
     // ── Click the Post button ─────────────────────────────────────────────
+    // Use state:'visible' so Playwright skips any hidden duplicates on the feed
     onLog({ status: 'info', message: 'Clicking the Post button...' });
     const postBtn = await page.waitForSelector(
-      'button.share-actions__primary-action, button[data-control-name="share.post"], button:has-text("Post"):not(:has-text("Next")):not(:has-text("Photo")):not(:has-text("Video"))',
-      { timeout: 10000 }
+      'button.share-actions__primary-action',
+      { timeout: 10000, state: 'visible' }
     );
     await postBtn.click();
 
