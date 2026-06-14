@@ -3,23 +3,33 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eliva - LinkedIn Post Creator</title>
+  <title>Eliva — Elevate your professional presence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Root Container -->
   <div class="app-container">
-    
+
     <!-- Top Navigation Header -->
     <header class="app-header">
       <div class="logo-area">
         <div class="logo-box">E</div>
-        <h1>Eliva</h1>
-        <span class="logo-subtitle">LinkedIn Optimizer</span>
+        <div class="logo-text">
+          <h1>Eliva</h1>
+          <span class="logo-subtitle">Elevate your professional presence.</span>
+        </div>
       </div>
+
+      <!-- Session status dot in header -->
+      <div class="header-center">
+        <div id="session-status-pill" class="session-pill session-unknown">
+          <span class="session-dot"></span>
+          <span id="session-status-label">Session not verified</span>
+        </div>
+      </div>
+
       <div class="nav-buttons">
         <button id="tab-dashboard-btn" class="nav-btn active-tab-btn">Dashboard</button>
         <button id="tab-settings-btn" class="nav-btn">Settings</button>
@@ -28,9 +38,10 @@
 
     <!-- Main Workspace -->
     <main class="app-workspace">
-      
+
       <!-- Dashboard Page -->
       <section id="dashboard-page" class="workspace-page active-page">
+
         <!-- Left Column: Media Workspace -->
         <div class="workspace-col col-left">
           <div class="card card-3d drag-drop-card" id="drop-zone">
@@ -39,29 +50,20 @@
               <span class="dot yellow-dot"></span>
               <span class="dot green-dot"></span>
             </div>
-            
+
             <div class="drag-drop-content" id="drop-zone-prompt">
-              <div class="upload-icon">✦</div>
+              <div class="upload-icon-wrap">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </div>
               <h3>Select Post Image</h3>
               <p>Drag and drop your image here, or click to browse files</p>
-              <span class="badge">JPG, PNG, WEBP</span>
+              <span class="badge">JPG · PNG · WEBP</span>
             </div>
 
             <div class="image-preview-wrapper hidden" id="preview-wrapper">
               <img id="image-preview-img" src="" alt="Selected Preview">
-              <button id="remove-image-btn" class="remove-btn">Remove Image</button>
+              <button id="remove-image-btn" class="remove-btn">Remove</button>
             </div>
-          </div>
-
-          <div class="card card-3d status-card">
-            <h3>System Status</h3>
-            <div id="status-badge" class="status-indicator warning">
-              <span class="indicator-dot"></span>
-              <span class="indicator-text">Session not checked</span>
-            </div>
-            <p class="status-desc">Use Settings to authenticate your LinkedIn account session before attempting automated posts.</p>
-            <button id="verify-session-quick-btn" class="btn btn-secondary btn-full">Test LinkedIn Session</button>
-            <button id="launch-browser-quick-btn" class="btn btn-secondary btn-full" style="margin-top: 8px;">Open Browser (No Timeout) 🌐</button>
           </div>
         </div>
 
@@ -81,29 +83,24 @@
                 </select>
               </div>
             </div>
-            <textarea id="post-desc-input" placeholder="Describe the certificate, achievement, project, activity, or event you want to share. Explain the key learnings, tech used, or why this matters..."></textarea>
-            <button id="generate-btn" class="btn btn-primary btn-full">Generate LinkedIn Post ⚡</button>
+            <textarea id="post-desc-input" placeholder="Describe the certificate, achievement, project, or event you want to share. Include key learnings, technologies used, and why this matters..."></textarea>
+            <button id="generate-btn" class="btn btn-primary btn-full">Generate LinkedIn Post</button>
           </div>
 
           <!-- Preview & Action Panel -->
           <div class="card card-3d preview-card">
             <div class="card-inner-header">
-              <h2>Generated Content Preview</h2>
+              <h2>Generated Post</h2>
               <div class="action-row">
-                <button id="edit-btn" class="btn btn-icon" title="Edit Post">✍️ Edit</button>
-                <button id="copy-btn" class="btn btn-icon" title="Copy Content">📋 Copy</button>
-                <button id="regenerate-btn" class="btn btn-icon" title="Regenerate Content" disabled>🔄 Retry</button>
-              </div>
-            </div>
-            
-            <div class="preview-editor-box">
-              <textarea id="generated-post-text" class="preview-textarea" placeholder="Generated post copy will appear here. You can edit it manually if needed..." readonly></textarea>
-              <div id="hashtags-container" class="hashtags-box">
-                <!-- Tags will go here -->
+                <button id="edit-btn" class="btn btn-icon" title="Edit Post">Edit</button>
+                <button id="copy-btn" class="btn btn-icon" title="Copy Content">Copy</button>
+                <button id="regenerate-btn" class="btn btn-icon" title="Regenerate" disabled>Retry</button>
               </div>
             </div>
 
-            <button id="publish-btn" class="btn btn-accent btn-full" disabled>Publish to LinkedIn 🚀</button>
+            <textarea id="generated-post-text" class="preview-textarea" placeholder="Your optimised LinkedIn post will appear here. Hashtags are included inline — edit freely before publishing." readonly></textarea>
+
+            <button id="publish-btn" class="btn btn-accent btn-full" disabled>Publish to LinkedIn</button>
           </div>
         </div>
       </section>
@@ -113,20 +110,20 @@
         <div class="settings-grid">
           <div class="card card-3d settings-card-wide">
             <h2>Application Settings</h2>
-            <p class="settings-intro">Configure the backend API keys and automation profiles for local execution.</p>
+            <p class="settings-intro">Configure API keys and automation profiles for local execution.</p>
 
             <div class="settings-form-group">
               <label for="settings-api-key">Gemini API Key</label>
               <input type="password" id="settings-api-key" placeholder="Enter your Gemini API Key">
-              <span class="field-hint">Used for writing optimization & hashtag generation. Authenticated locally.</span>
+              <span class="field-hint">Used for post writing and optimisation. Stored locally — never transmitted.</span>
             </div>
 
             <div class="settings-form-group">
-              <label for="settings-profile-dir">LinkedIn Profile Storage Directory</label>
+              <label for="settings-profile-dir">LinkedIn Browser Profile Directory</label>
               <div class="input-action-row">
                 <input type="text" id="settings-profile-dir" placeholder="Loading profile path..." readonly>
               </div>
-              <span class="field-hint">Playwright stores browser profile and LinkedIn persistent login state here.</span>
+              <span class="field-hint">Playwright stores your LinkedIn persistent session here.</span>
             </div>
 
             <div class="settings-form-group">
@@ -144,8 +141,8 @@
 
             <div class="settings-actions">
               <button id="save-settings-btn" class="btn btn-primary">Save Settings</button>
-              <button id="check-session-btn" class="btn btn-secondary">Setup / Check LinkedIn Session</button>
-              <button id="settings-launch-browser-btn" class="btn btn-secondary">Open Browser (No Timeout) 🌐</button>
+              <button id="check-session-btn" class="btn btn-secondary">Verify LinkedIn Session</button>
+              <button id="settings-launch-browser-btn" class="btn btn-secondary">Open Browser Session</button>
             </div>
           </div>
         </div>
@@ -153,7 +150,7 @@
 
     </main>
 
-    <!-- Toast Notification Overlay -->
+    <!-- Toast Notification -->
     <div id="toast-notification" class="toast-box">
       <div class="toast-indicator"></div>
       <p id="toast-message">Message text goes here.</p>
@@ -163,11 +160,11 @@
     <div id="automation-modal" class="modal-overlay hidden">
       <div class="modal-card card-3d">
         <div class="modal-header">
-          <h2>LinkedIn Automator Progress</h2>
+          <h2>Automation Progress</h2>
           <span class="modal-badge-live">LIVE</span>
         </div>
         <div class="modal-body">
-          <p class="modal-intro">Playwright is running in a visible browser. You can follow the logs below or look at the browser window:</p>
+          <p class="modal-intro">Playwright is running in a visible browser. Follow the log or watch the browser window.</p>
           <div id="automation-logs" class="console-box">
             <!-- Terminal logs injected here -->
           </div>

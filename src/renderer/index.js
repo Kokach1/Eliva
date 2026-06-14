@@ -1,67 +1,59 @@
-// Global state
+// ── Global State ────────────────────────────────────────────
 let currentImagePath = null;
-let currentConfig = null;
-let generatedContent = null;
-let generatedHashtags = [];
+let currentConfig    = null;
 
-// DOM Elements
-const tabDashboardBtn = document.getElementById('tab-dashboard-btn');
-const tabSettingsBtn = document.getElementById('tab-settings-btn');
-const dashboardPage = document.getElementById('dashboard-page');
-const settingsPage = document.getElementById('settings-page');
+// ── DOM References ───────────────────────────────────────────
+const tabDashboardBtn    = document.getElementById('tab-dashboard-btn');
+const tabSettingsBtn     = document.getElementById('tab-settings-btn');
+const dashboardPage      = document.getElementById('dashboard-page');
+const settingsPage       = document.getElementById('settings-page');
 
-const dropZone = document.getElementById('drop-zone');
-const dropZonePrompt = document.getElementById('drop-zone-prompt');
-const previewWrapper = document.getElementById('preview-wrapper');
-const imagePreviewImg = document.getElementById('image-preview-img');
-const removeImageBtn = document.getElementById('remove-image-btn');
+const dropZone           = document.getElementById('drop-zone');
+const dropZonePrompt     = document.getElementById('drop-zone-prompt');
+const previewWrapper     = document.getElementById('preview-wrapper');
+const imagePreviewImg    = document.getElementById('image-preview-img');
+const removeImageBtn     = document.getElementById('remove-image-btn');
 
-const postDescInput = document.getElementById('post-desc-input');
-const postStyleSelect = document.getElementById('post-style-select');
-const generateBtn = document.getElementById('generate-btn');
+const postDescInput      = document.getElementById('post-desc-input');
+const postStyleSelect    = document.getElementById('post-style-select');
+const generateBtn        = document.getElementById('generate-btn');
 
-const editBtn = document.getElementById('edit-btn');
-const copyBtn = document.getElementById('copy-btn');
-const regenerateBtn = document.getElementById('regenerate-btn');
-const generatedPostText = document.getElementById('generated-post-text');
-const hashtagsContainer = document.getElementById('hashtags-container');
-const publishBtn = document.getElementById('publish-btn');
+const editBtn            = document.getElementById('edit-btn');
+const copyBtn            = document.getElementById('copy-btn');
+const regenerateBtn      = document.getElementById('regenerate-btn');
+const generatedPostText  = document.getElementById('generated-post-text');
+const publishBtn         = document.getElementById('publish-btn');
 
-const statusBadge = document.getElementById('status-badge');
-const verifySessionQuickBtn = document.getElementById('verify-session-quick-btn');
-const launchBrowserQuickBtn = document.getElementById('launch-browser-quick-btn');
+// Session pill (header)
+const sessionPill        = document.getElementById('session-status-pill');
+const sessionLabel       = document.getElementById('session-status-label');
 
-// Settings DOM Elements
-const settingsApiKey = document.getElementById('settings-api-key');
-const settingsProfileDir = document.getElementById('settings-profile-dir');
-const settingsDefaultStyle = document.getElementById('settings-default-style');
-const saveSettingsBtn = document.getElementById('save-settings-btn');
-const checkSessionBtn = document.getElementById('check-session-btn');
+// Settings
+const settingsApiKey           = document.getElementById('settings-api-key');
+const settingsProfileDir       = document.getElementById('settings-profile-dir');
+const settingsDefaultStyle     = document.getElementById('settings-default-style');
+const saveSettingsBtn          = document.getElementById('save-settings-btn');
+const checkSessionBtn          = document.getElementById('check-session-btn');
 const settingsLaunchBrowserBtn = document.getElementById('settings-launch-browser-btn');
 
 // Toast
-const toastNotification = document.getElementById('toast-notification');
-const toastMessage = document.getElementById('toast-message');
+const toastNotification  = document.getElementById('toast-notification');
+const toastMessage       = document.getElementById('toast-message');
 
 // Modal
-const automationModal = document.getElementById('automation-modal');
-const automationLogs = document.getElementById('automation-logs');
-const closeModalBtn = document.getElementById('close-modal-btn');
+const automationModal    = document.getElementById('automation-modal');
+const automationLogs     = document.getElementById('automation-logs');
+const closeModalBtn      = document.getElementById('close-modal-btn');
 
-// Initialize App
+// ── Initialise ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  // Load configuration
   currentConfig = await window.elivaAPI.loadConfig();
-  
-  // Populate settings fields
-  settingsApiKey.value = currentConfig.geminiApiKey || '';
-  settingsProfileDir.value = currentConfig.linkedinProfileDir || '';
-  settingsDefaultStyle.value = currentConfig.defaultPostStyle || 'Professional';
-  
-  // Update dashboard style selector to match default
-  postStyleSelect.value = currentConfig.defaultPostStyle || 'Professional';
 
-  // Setup Event Listeners
+  settingsApiKey.value       = currentConfig.geminiApiKey       || '';
+  settingsProfileDir.value   = currentConfig.linkedinProfileDir || '';
+  settingsDefaultStyle.value = currentConfig.defaultPostStyle   || 'Professional';
+  postStyleSelect.value      = currentConfig.defaultPostStyle   || 'Professional';
+
   setupNavigation();
   setupImageSelection();
   setupPostGeneration();
@@ -70,7 +62,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupAutomationLogger();
 });
 
-// Navigation Handling
+// ── Navigation ───────────────────────────────────────────────
 function setupNavigation() {
   tabDashboardBtn.addEventListener('click', () => {
     tabDashboardBtn.classList.add('active-tab-btn');
@@ -87,60 +79,58 @@ function setupNavigation() {
   });
 }
 
-// Toast Notifications Helper
+// ── Toast ────────────────────────────────────────────────────
 function showToast(message, type = 'info') {
   toastMessage.textContent = message;
   toastNotification.className = `toast-box show ${type}`;
-  setTimeout(() => {
-    toastNotification.classList.remove('show');
-  }, 4000);
+  setTimeout(() => toastNotification.classList.remove('show'), 4000);
 }
 
-// Image Drag, Drop, and Select Handlers
+// ── Session Pill ─────────────────────────────────────────────
+function setSessionPill(state) {
+  // state: 'verified' | 'inactive' | 'unknown'
+  sessionPill.className = `session-pill session-${state}`;
+  const labels = {
+    verified: 'Session verified',
+    inactive: 'Session not verified',
+    unknown:  'Session not verified'
+  };
+  sessionLabel.textContent = labels[state] || 'Session not verified';
+}
+
+// ── Image Selection ──────────────────────────────────────────
 function setupImageSelection() {
-  // File dialog click
   dropZone.addEventListener('click', async (e) => {
-    // Avoid double trigger if clicking remove button
     if (e.target === removeImageBtn) return;
     if (currentImagePath) return;
-
     try {
       const res = await window.elivaAPI.selectImage();
-      if (res && res.filePath) {
-        handleImageLoaded(res.filePath, res.base64);
-      }
-    } catch (err) {
+      if (res && res.filePath) handleImageLoaded(res.filePath, res.base64);
+    } catch {
       showToast('Failed to open image selector', 'error');
     }
   });
 
-  // Drag and Drop implementation
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('drag-over');
   });
 
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('drag-over');
-  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-
     if (currentImagePath) return;
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
       const file = files[0];
-      const validExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-      const ext = file.name.split('.').pop().toLowerCase();
-      
-      if (validExtensions.includes(ext)) {
-        const objectUrl = URL.createObjectURL(file);
-        handleImageLoaded(file.path, objectUrl);
+      const ext  = file.name.split('.').pop().toLowerCase();
+      if (['jpg','jpeg','png','webp'].includes(ext)) {
+        handleImageLoaded(file.path, URL.createObjectURL(file));
       } else {
-        showToast('Unsupported format. Please drop JPG, PNG, or WEBP.', 'error');
+        showToast('Unsupported format. Use JPG, PNG, or WEBP.', 'error');
       }
     }
   });
@@ -160,14 +150,14 @@ function handleImageLoaded(filePath, previewSrc) {
   imagePreviewImg.src = previewSrc || filePath;
   previewWrapper.classList.remove('hidden');
   dropZonePrompt.classList.add('hidden');
-  showToast('Image uploaded successfully!', 'success');
+  showToast('Image loaded.', 'success');
 }
 
-// Gemini Post Generation Handler
+// ── Post Generation ──────────────────────────────────────────
 function setupPostGeneration() {
   generateBtn.addEventListener('click', async () => {
     const description = postDescInput.value.trim();
-    const style = postStyleSelect.value;
+    const style       = postStyleSelect.value;
 
     if (!description) {
       showToast('Please enter a description first.', 'error');
@@ -178,84 +168,57 @@ function setupPostGeneration() {
 
     try {
       const result = await window.elivaAPI.generatePost(description, style);
-      
-      generatedContent = result.postContent;
-      generatedHashtags = result.hashtags;
-      
-      // Update UI
-      generatedPostText.value = generatedContent;
-      renderHashtags(generatedHashtags);
-      
-      // Enable editing and action controls
+
+      // Merge hashtags inline at the end of the post body
+      const hashtagsInline = (result.hashtags || []).join(' ');
+      const fullPost = hashtagsInline
+        ? result.postContent.trimEnd() + '\n\n' + hashtagsInline
+        : result.postContent;
+
+      generatedPostText.value = fullPost;
       generatedPostText.removeAttribute('readonly');
       regenerateBtn.removeAttribute('disabled');
       publishBtn.removeAttribute('disabled');
-      
-      showToast('LinkedIn post optimized successfully!', 'success');
+
+      showToast('Post generated successfully.', 'success');
     } catch (err) {
-      showToast(err.message || 'Generation failed. Check API key/connection.', 'error');
+      showToast(err.message || 'Generation failed. Check your API key.', 'error');
     } finally {
       setGeneratingState(false);
     }
   });
 
-  // Regenerate/Retry button
-  regenerateBtn.addEventListener('click', () => {
-    generateBtn.click();
-  });
+  regenerateBtn.addEventListener('click', () => generateBtn.click());
 
-  // Copy Content button
   copyBtn.addEventListener('click', () => {
-    const content = getFinalPostText();
+    const content = generatedPostText.value.trim();
     if (!content) return;
-    
     navigator.clipboard.writeText(content);
-    showToast('Copied content to clipboard!', 'success');
+    showToast('Copied to clipboard.', 'success');
   });
 
-  // Edit / Preview Textarea interaction
-  editBtn.addEventListener('click', () => {
-    generatedPostText.focus();
-  });
+  editBtn.addEventListener('click', () => generatedPostText.focus());
 }
 
 function setGeneratingState(isGenerating) {
   if (isGenerating) {
-    generateBtn.textContent = 'Optimizing post with AI... ⏳';
+    generateBtn.textContent = 'Generating with AI...';
     generateBtn.setAttribute('disabled', 'true');
   } else {
-    generateBtn.textContent = 'Generate LinkedIn Post ⚡';
+    generateBtn.textContent = 'Generate LinkedIn Post';
     generateBtn.removeAttribute('disabled');
   }
 }
 
-function renderHashtags(tags) {
-  hashtagsContainer.innerHTML = '';
-  tags.forEach(tag => {
-    const chip = document.createElement('span');
-    chip.className = 'hashtag-chip';
-    chip.textContent = tag;
-    hashtagsContainer.appendChild(chip);
-  });
-}
-
-function getFinalPostText() {
-  const text = generatedPostText.value.trim();
-  if (!text) return '';
-  const tagsStr = generatedHashtags.join(' ');
-  return text + '\n\n' + tagsStr;
-}
-
-// Playwright Posting Actions
+// ── Publishing ───────────────────────────────────────────────
 function setupPublishing() {
   publishBtn.addEventListener('click', async () => {
-    const textContent = getFinalPostText();
+    const textContent = generatedPostText.value.trim();
     if (!textContent) {
       showToast('No content to publish.', 'error');
       return;
     }
 
-    // Prepare modal
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
     closeModalBtn.setAttribute('disabled', 'true');
@@ -264,78 +227,66 @@ function setupPublishing() {
     try {
       const success = await window.elivaAPI.publishPost(textContent, currentImagePath);
       if (success) {
-        showToast('Successfully published to LinkedIn!', 'success');
+        showToast('Published to LinkedIn successfully.', 'success');
       } else {
         showToast('Posting failed. Check the automation log.', 'error');
       }
     } catch (err) {
-      showToast('Automation Error: ' + err.message, 'error');
+      showToast('Automation error: ' + err.message, 'error');
     } finally {
       closeModalBtn.removeAttribute('disabled');
       closeModalBtn.textContent = 'Close Console';
     }
   });
 
-  closeModalBtn.addEventListener('click', () => {
-    automationModal.classList.add('hidden');
-  });
+  closeModalBtn.addEventListener('click', () => automationModal.classList.add('hidden'));
 }
 
-// Log streaming from Main Process
+// ── Automation Log Stream ─────────────────────────────────────
 function setupAutomationLogger() {
   window.elivaAPI.onAutomationLog((log) => {
     const line = document.createElement('div');
     line.className = `console-line ${log.status}`;
-    
-    // Timestamp
     const time = new Date().toLocaleTimeString();
     line.textContent = `[${time}] ${log.message}`;
-    
     automationLogs.appendChild(line);
     automationLogs.scrollTop = automationLogs.scrollHeight;
   });
 }
 
-// Settings handlers
+// ── Settings ─────────────────────────────────────────────────
 function setupSettingsHandlers() {
-  // Save Settings
   saveSettingsBtn.addEventListener('click', async () => {
     const apiKey = settingsApiKey.value.trim();
-    const style = settingsDefaultStyle.value;
+    const style  = settingsDefaultStyle.value;
 
     if (!apiKey) {
-      showToast('Gemini API key is required.', 'error');
+      showToast('A Gemini API key is required.', 'error');
       return;
     }
 
     try {
-      currentConfig = await window.elivaAPI.saveConfig({
-        geminiApiKey: apiKey,
-        defaultPostStyle: style
-      });
+      currentConfig = await window.elivaAPI.saveConfig({ geminiApiKey: apiKey, defaultPostStyle: style });
       postStyleSelect.value = currentConfig.defaultPostStyle;
-      showToast('Settings saved successfully.', 'success');
+      showToast('Settings saved.', 'success');
     } catch (err) {
-      showToast('Failed to save settings: ' + err.message, 'error');
+      showToast('Failed to save: ' + err.message, 'error');
     }
   });
 
-  // Verify / Setup session
+  // Verify session
   const verifySession = async () => {
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
     closeModalBtn.setAttribute('disabled', 'true');
-    closeModalBtn.textContent = 'Verifying Session...';
+    closeModalBtn.textContent = 'Verifying...';
 
     try {
       const active = await window.elivaAPI.checkSession();
-      updateStatusDisplay(active);
-      if (active) {
-        showToast('LinkedIn Session is ACTIVE.', 'success');
-      } else {
-        showToast('LinkedIn Session is INACTIVE. Please sign in.', 'error');
-      }
+      setSessionPill(active ? 'verified' : 'inactive');
+      showToast(active ? 'LinkedIn session is active.' : 'Session inactive — please sign in.', active ? 'success' : 'error');
     } catch (err) {
+      setSessionPill('inactive');
       showToast('Session check failed: ' + err.message, 'error');
     } finally {
       closeModalBtn.removeAttribute('disabled');
@@ -344,10 +295,9 @@ function setupSettingsHandlers() {
   };
 
   checkSessionBtn.addEventListener('click', verifySession);
-  verifySessionQuickBtn.addEventListener('click', verifySession);
 
-  // Open visible browser without timeout session manager
-  const openBrowserSession = async () => {
+  // Open persistent browser session (settings only)
+  settingsLaunchBrowserBtn.addEventListener('click', async () => {
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
     closeModalBtn.setAttribute('disabled', 'true');
@@ -356,27 +306,13 @@ function setupSettingsHandlers() {
     try {
       await window.elivaAPI.launchBrowserSession();
       showToast('Browser session ended.', 'info');
-      // Do a quick, silent check on session status after closing the browser
       const active = await window.elivaAPI.checkSession();
-      updateStatusDisplay(active);
+      setSessionPill(active ? 'verified' : 'inactive');
     } catch (err) {
       showToast('Failed to start browser: ' + err.message, 'error');
     } finally {
       closeModalBtn.removeAttribute('disabled');
       closeModalBtn.textContent = 'Close Console';
     }
-  };
-
-  launchBrowserQuickBtn.addEventListener('click', openBrowserSession);
-  settingsLaunchBrowserBtn.addEventListener('click', openBrowserSession);
-}
-
-function updateStatusDisplay(isActive) {
-  if (isActive) {
-    statusBadge.className = 'status-indicator success';
-    statusBadge.querySelector('.indicator-text').textContent = 'LinkedIn Session Active';
-  } else {
-    statusBadge.className = 'status-indicator error';
-    statusBadge.querySelector('.indicator-text').textContent = 'Session Inactive';
-  }
+  });
 }
