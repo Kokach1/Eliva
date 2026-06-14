@@ -71,20 +71,14 @@ body {
   gap: 12px;
 }
 
-.logo-box {
-  background-color: var(--primary);
-  color: var(--white);
-  border: var(--border-thin);
-  border-radius: 8px;
-  font-weight: 800;
-  font-size: 18px;
+.logo-img {
   width: 36px;
   height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-sm);
+  border-radius: 8px;
+  object-fit: cover;
   flex-shrink: 0;
+  border: var(--border-thin);
+  box-shadow: var(--shadow-sm);
 }
 
 .logo-text h1 {

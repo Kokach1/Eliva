@@ -8,11 +8,17 @@ import { checkLinkedInSession, publishLinkedInPost, launchLinkedInBrowserSession
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  // Icon path works both in dev (from project root) and when packaged
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets', 'eliva_logo.png')
+    : path.join(__dirname, '../src/renderer/assets/eliva_logo.png');
+
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 780,
     minWidth: 800,
     minHeight: 600,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -22,7 +28,12 @@ function createWindow() {
     autoHideMenuBar: true
   });
 
-  mainWindow.loadFile(path.join(__dirname, '../src/renderer/index.html'));
+  // Renderer path — works in dev and packaged
+  const rendererPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'renderer', 'index.html')
+    : path.join(__dirname, '../src/renderer/index.html');
+
+  mainWindow.loadFile(rendererPath);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

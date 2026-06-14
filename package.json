@@ -1,20 +1,79 @@
 {
   "name": "eliva",
   "version": "1.0.0",
-  "description": "Windows desktop application to generate and post on LinkedIn",
+  "description": "Elevate your professional presence on LinkedIn",
   "main": "dist/main.js",
+  "author": "Eliva",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
     "start": "tsc && electron .",
-    "postinstall": "npx playwright install chromium"
+    "postinstall": "npx playwright install chromium",
+    "dist": "tsc && electron-builder --win --publish never"
   },
   "dependencies": {
     "playwright": "^1.42.0"
   },
   "devDependencies": {
+    "@types/node": "^20.11.24",
     "electron": "^29.1.0",
-    "typescript": "^5.3.3",
-    "@types/node": "^20.11.24"
+    "electron-builder": "^24.13.3",
+    "typescript": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.eliva.app",
+    "productName": "Eliva",
+    "copyright": "Copyright © 2026 Eliva",
+    "icon": "eliva_logo.png",
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/playwright/**",
+      "**/node_modules/playwright-core/**"
+    ],
+    "extraResources": [
+      {
+        "from": "src/renderer",
+        "to": "renderer",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "eliva_logo.png",
+        "to": "assets/eliva_logo.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "eliva_logo.png",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Eliva",
+      "installerIcon": "eliva_logo.png",
+      "uninstallerIcon": "eliva_logo.png",
+      "installerHeaderIcon": "eliva_logo.png",
+      "deleteAppDataOnUninstall": false
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    }
   }
 }
