@@ -104,33 +104,42 @@ export async function publishLinkedInPost(
 
     if (imagePath) {
       // ── Path A: Image post ────────────────────────────────────────────────
-      // Click the "Photo" button directly in the feed share box
-      onLog({ status: 'info', message: 'Clicking the Photo button in the share box...' });
+      // STEP 1: Click the "Photo" button → This opens the "Editor" modal (empty)
+      onLog({ status: 'info', message: 'Clicking the Photo button — opening Editor modal...' });
       const photoBtn = await page.waitForSelector(
         '[data-view-name="share-sharebox-bottom-bar-image"]',
         { timeout: 15000 }
       );
+      await photoBtn.click();
 
-      // Trigger file chooser BEFORE clicking so we don't miss it
+      // STEP 2: Wait for the empty Editor modal ("Select files to begin")
+      // Then click "Upload from computer" to trigger the file chooser
+      onLog({ status: 'info', message: 'Editor modal opened. Clicking "Upload from computer"...' });
+      const uploadBtn = await page.waitForSelector(
+        'button:has-text("Upload from computer"), button:has-text("Upload"), label:has-text("Upload")',
+        { timeout: 10000 }
+      );
       const [fileChooser] = await Promise.all([
         page.waitForEvent('filechooser', { timeout: 10000 }),
-        photoBtn.click()
+        uploadBtn.click()
       ]);
 
+      // STEP 3: Set the actual file — image preview will appear in the Editor
       onLog({ status: 'info', message: `Uploading image: ${imagePath}` });
       await fileChooser.setFiles(imagePath);
 
-      // Wait for the media editor modal ("Select files to begin" → image preview)
-      onLog({ status: 'info', message: 'Waiting for media editor modal...' });
-      await page.waitForTimeout(2500);
+      // Wait for image preview to render inside the Editor
+      onLog({ status: 'info', message: 'Waiting for image preview to render...' });
+      await page.waitForTimeout(3000);
 
-      // Click "Next" (or "Done" / "Apply") to proceed to the text editor
+      // STEP 4: Click "Next" to proceed to the post text composer
+      onLog({ status: 'info', message: 'Clicking Next to open post text editor...' });
       const nextBtn = await page.waitForSelector(
-        'button:has-text("Next"), button:has-text("Done"), button:has-text("Apply")',
+        'button:has-text("Next")',
         { timeout: 20000 }
       );
       await nextBtn.click();
-      onLog({ status: 'info', message: 'Clicked Next — opening post text editor...' });
+      onLog({ status: 'info', message: 'Next clicked — post text composer is now open.' });
       await page.waitForTimeout(2500);
 
     } else {
