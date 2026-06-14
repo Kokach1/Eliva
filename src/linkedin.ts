@@ -9,35 +9,28 @@ export interface AutomationLog {
 type LogCallback = (log: AutomationLog) => void;
 
 async function verifyLoginState(page: Page): Promise<boolean> {
-  // Modern LinkedIn no longer uses .global-nav. 
-  // We detect login by checking the URL is /feed AND the share box is present.
-  // We also look for login form elements to detect the NOT-logged-in state.
+  // Simple, bulletproof check: wait up to 20s for the page to settle,
+  // then see if we were redirected to login or stayed on /feed.
+  // LinkedIn's persistent session will keep us on /feed if logged in.
+  
+  // Wait for either login form OR any feed content to appear
   try {
     await Promise.any([
-      // Logged-in indicators: share box or profile icon area
-      page.waitForSelector(
-        '[data-view-name="share-sharebox-focus"], [data-view-name="share-sharebox-bottom-bar-image"], .global-nav__me-photo, .global-nav',
-        { timeout: 15000 }
-      ),
-      // Logged-out indicators: login form
-      page.waitForSelector(
-        '#username, input[name="session_key"], form.login__form',
-        { timeout: 15000 }
-      )
+      page.waitForSelector('#username, input[name="session_key"], .login__form', { timeout: 20000 }),
+      page.waitForSelector('main, [role="main"], .scaffold-layout__main', { timeout: 20000 })
     ]);
   } catch (e) {
-    // Timeout — neither appeared, fall through to URL check
+    // Neither appeared in time — just check the URL
   }
 
   const url = page.url();
-  // If URL contains /feed AND the share box (post composer) is present, we are logged in
-  const shareBoxPresent = (await page.$('[data-view-name="share-sharebox-focus"]')) !== null;
-  const oldNavPresent = (await page.$('.global-nav')) !== null;
-  const loggedIn = url.includes('/feed') && (shareBoxPresent || oldNavPresent);
+  const isOnFeed = url.includes('/feed') || url.includes('linkedin.com/in/');
+  const isOnLogin = url.includes('/login') || url.includes('/checkpoint') || url.includes('/uas/');
 
-  // Debug log
-  console.log(`[verifyLoginState] url=${url}, shareBoxPresent=${shareBoxPresent}, oldNavPresent=${oldNavPresent}, loggedIn=${loggedIn}`);
-  return loggedIn;
+  console.log(`[verifyLoginState] url=${url}, isOnFeed=${isOnFeed}, isOnLogin=${isOnLogin}`);
+  
+  // If we're on the feed and NOT on a login/checkpoint page, we're logged in
+  return isOnFeed && !isOnLogin;
 }
 
 export async function checkLinkedInSession(
@@ -57,7 +50,7 @@ export async function checkLinkedInSession(
 
     const page = await context.newPage();
     onLog({ status: 'info', message: 'Navigating to LinkedIn Feed...' });
-    await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'networkidle' });
 
     const active = await verifyLoginState(page);
     if (active) {
@@ -117,7 +110,7 @@ export async function publishLinkedInPost(
 
     const page = await context.newPage();
     onLog({ status: 'info', message: 'Navigating to LinkedIn feed...' });
-    await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+    await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'networkidle' });
 
     const active = await verifyLoginState(page);
     if (!active) {
