@@ -9,19 +9,35 @@ export interface AutomationLog {
 type LogCallback = (log: AutomationLog) => void;
 
 async function verifyLoginState(page: Page): Promise<boolean> {
+  // Modern LinkedIn no longer uses .global-nav. 
+  // We detect login by checking the URL is /feed AND the share box is present.
+  // We also look for login form elements to detect the NOT-logged-in state.
   try {
-    // Wait for feed selector (global-nav) OR login elements to appear
     await Promise.any([
-      page.waitForSelector('.global-nav', { timeout: 15000 }),
-      page.waitForSelector('#username, input[name="session_key"], form.login__form, button[type="submit"]', { timeout: 15000 })
+      // Logged-in indicators: share box or profile icon area
+      page.waitForSelector(
+        '[data-view-name="share-sharebox-focus"], [data-view-name="share-sharebox-bottom-bar-image"], .global-nav__me-photo, .global-nav',
+        { timeout: 15000 }
+      ),
+      // Logged-out indicators: login form
+      page.waitForSelector(
+        '#username, input[name="session_key"], form.login__form',
+        { timeout: 15000 }
+      )
     ]);
   } catch (e) {
-    // Ignore timeout and check whatever exists
+    // Timeout — neither appeared, fall through to URL check
   }
 
   const url = page.url();
-  const navPresent = (await page.$('.global-nav')) !== null;
-  return url.includes('/feed') && navPresent;
+  // If URL contains /feed AND the share box (post composer) is present, we are logged in
+  const shareBoxPresent = (await page.$('[data-view-name="share-sharebox-focus"]')) !== null;
+  const oldNavPresent = (await page.$('.global-nav')) !== null;
+  const loggedIn = url.includes('/feed') && (shareBoxPresent || oldNavPresent);
+
+  // Debug log
+  console.log(`[verifyLoginState] url=${url}, shareBoxPresent=${shareBoxPresent}, oldNavPresent=${oldNavPresent}, loggedIn=${loggedIn}`);
+  return loggedIn;
 }
 
 export async function checkLinkedInSession(
@@ -52,14 +68,18 @@ export async function checkLinkedInSession(
 
     onLog({ status: 'info', message: 'No active session. Directing to LinkedIn login page...' });
     await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' });
-    onLog({ status: 'info', message: 'Please log in manually in the browser window within 5 minutes.' });
+    onLog({ status: 'info', message: 'Please log in manually in the browser window. Waiting up to 5 minutes...' });
 
-    // Wait for the user to log in manually and land on the feed page
+    // Wait for user to log in manually — look for feed URL + sharebox (modern LinkedIn)
     try {
       await page.waitForURL('**/feed**', { timeout: 300000 });
-      await page.waitForSelector('.global-nav', { timeout: 30000 });
-      onLog({ status: 'success', message: 'Login detected! Saving session...' });
-      await page.waitForTimeout(3000); // Give it a moment to write cookies
+      // Wait for the share box (modern LinkedIn) or old nav
+      await Promise.any([
+        page.waitForSelector('[data-view-name="share-sharebox-focus"]', { timeout: 30000 }),
+        page.waitForSelector('.global-nav', { timeout: 30000 })
+      ]);
+      onLog({ status: 'success', message: 'Login detected! Session saved.' });
+      await page.waitForTimeout(3000); // Let cookies settle
       await context.close();
       return true;
     } catch (e) {
