@@ -24,7 +24,7 @@
     "appId": "com.eliva.app",
     "productName": "Eliva",
     "copyright": "Copyright © 2026 Eliva",
-    "icon": "eliva_logo.png",
+    "icon": "eliva_logo.ico",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/playwright/**",
@@ -34,9 +34,7 @@
       {
         "from": "src/renderer",
         "to": "renderer",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       },
       {
         "from": "eliva_logo.png",
@@ -47,12 +45,10 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
-      "icon": "eliva_logo.png",
+      "icon": "eliva_logo.ico",
       "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
@@ -62,9 +58,9 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Eliva",
-      "installerIcon": "eliva_logo.png",
-      "uninstallerIcon": "eliva_logo.png",
-      "installerHeaderIcon": "eliva_logo.png",
+      "installerIcon": "eliva_logo.ico",
+      "uninstallerIcon": "eliva_logo.ico",
+      "installerHeaderIcon": "eliva_logo.ico",
       "deleteAppDataOnUninstall": false
     },
     "files": [
@@ -77,3 +73,4 @@
     }
   }
 }
+
