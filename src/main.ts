@@ -76,40 +76,52 @@ ipcMain.handle('check-session', async () => {
   return await checkLinkedInSession(onLog);
 });
 
-ipcMain.handle('publish-post', async (_event, content: string, imagePath: string | null) => {
+ipcMain.handle('publish-post', async (_event, content: string, mediaPaths: string[]) => {
   const onLog = (log: { status: 'info' | 'success' | 'error'; message: string }) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('automation-log', log);
     }
   };
-  return await publishLinkedInPost(content, imagePath, onLog);
+  return await publishLinkedInPost(content, mediaPaths || [], onLog);
 });
 
-ipcMain.handle('select-image', async () => {
+ipcMain.handle('select-media', async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Select Image',
+    title: 'Select Photos & Videos',
     filters: [
-      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp'] }
+      { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] },
+      { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] },
+      { name: 'All Media', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'avi', 'mkv', 'webm'] }
     ],
-    properties: ['openFile']
+    properties: ['openFile', 'multiSelections']
   });
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
   }
-  
-  const filePath = result.filePaths[0];
-  try {
-    const data = fs.readFileSync(filePath);
-    const ext = path.extname(filePath).slice(1);
-    const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
-    const base64 = `data:${mime};base64,${data.toString('base64')}`;
-    return { filePath, base64 };
-  } catch (err) {
-    console.error('Failed to read image to base64:', err);
-    return { filePath, base64: null };
-  }
+
+  const VIDEO_EXTS = new Set(['mp4', 'mov', 'avi', 'mkv', 'webm']);
+
+  const files = result.filePaths.map(filePath => {
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    const isVideo = VIDEO_EXTS.has(ext);
+    try {
+      if (isVideo) {
+        // Don't base64 encode videos — too large; renderer will use file:// URL
+        return { filePath, base64: null, type: 'video' as const };
+      } else {
+        const data = fs.readFileSync(filePath);
+        const mime = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+        const base64 = `data:${mime};base64,${data.toString('base64')}`;
+        return { filePath, base64, type: 'image' as const };
+      }
+    } catch {
+      return { filePath, base64: null, type: isVideo ? 'video' as const : 'image' as const };
+    }
+  });
+
+  return files;
 });
 
 ipcMain.handle('launch-browser-session', async () => {

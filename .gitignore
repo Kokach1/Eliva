@@ -1,8 +1,10 @@
 node_modules/
 dist/
+release/
 linkedin-profile/
 config.json
 .DS_Store
 *.log
 claud/
-
+convert-icon.js
+eliva_logo.ico

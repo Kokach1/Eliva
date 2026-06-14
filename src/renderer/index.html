@@ -51,18 +51,25 @@
               <span class="dot green-dot"></span>
             </div>
 
+            <!-- Empty state prompt -->
             <div class="drag-drop-content" id="drop-zone-prompt">
               <div class="upload-icon-wrap">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               </div>
-              <h3>Select Post Image</h3>
-              <p>Drag and drop your image here, or click to browse files</p>
-              <span class="badge">JPG · PNG · WEBP</span>
+              <h3>Add Photos & Videos</h3>
+              <p>Drag and drop or click to browse. Select multiple files at once.</p>
+              <span class="badge">JPG · PNG · WEBP · MP4 · MOV</span>
             </div>
 
-            <div class="image-preview-wrapper hidden" id="preview-wrapper">
-              <img id="image-preview-img" src="" alt="Selected Preview">
-              <button id="remove-image-btn" class="remove-btn">Remove</button>
+            <!-- Media grid (shown when files are selected) -->
+            <div class="media-grid-wrapper hidden" id="media-grid-wrapper">
+              <div class="media-grid" id="media-grid">
+                <!-- Thumbnails injected by JS -->
+              </div>
+              <div class="media-grid-actions">
+                <button id="add-more-media-btn" class="btn btn-secondary btn-sm">+ Add More</button>
+                <button id="clear-all-media-btn" class="btn btn-sm btn-danger">Clear All</button>
+              </div>
             </div>
           </div>
         </div>

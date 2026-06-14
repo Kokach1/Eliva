@@ -333,44 +333,104 @@ body {
   color: var(--mid);
   margin-top: 4px;
 }
-
-.image-preview-wrapper {
+/* ── Media Grid ────────────────────────────────────────────── */
+.media-grid-wrapper {
   width: 100%;
   height: 100%;
-  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f1f5f9;
-  border-radius: 8px;
+  flex-direction: column;
+  padding: 10px;
+  gap: 10px;
   overflow: hidden;
 }
 
-.image-preview-wrapper img {
-  max-width: 100%;
-  max-height: 280px;
-  object-fit: contain;
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 4px;
 }
 
-.remove-btn {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  background-color: var(--error);
-  color: var(--white);
+.media-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
   border: var(--border-thin);
-  padding: 5px 12px;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 11px;
-  cursor: pointer;
-  box-shadow: 2px 2px 0px var(--border);
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  box-shadow: 2px 2px 0 var(--border);
+  background: #e2e8f0;
+  cursor: default;
 }
 
-.remove-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px var(--border);
+.media-thumb img,
+.media-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.media-thumb .video-badge {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+
+.media-thumb .remove-thumb-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: var(--error);
+  color: #fff;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.media-thumb:hover .remove-thumb-btn {
+  opacity: 1;
+}
+
+.media-grid-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.btn-danger {
+  background-color: var(--error-bg);
+  color: var(--error);
+  border: var(--border-thin);
+}
+
+.btn-danger:hover {
+  background-color: var(--error);
+  color: #fff;
 }
 
 /* ── Right Column ──────────────────────────────────────────── */

@@ -1,5 +1,5 @@
 // ── Global State ────────────────────────────────────────────
-let currentImagePath = null;
+let currentMediaFiles = []; // [{ filePath, previewSrc, type: 'image'|'video' }]
 let currentConfig    = null;
 
 // ── DOM References ───────────────────────────────────────────
@@ -10,9 +10,10 @@ const settingsPage       = document.getElementById('settings-page');
 
 const dropZone           = document.getElementById('drop-zone');
 const dropZonePrompt     = document.getElementById('drop-zone-prompt');
-const previewWrapper     = document.getElementById('preview-wrapper');
-const imagePreviewImg    = document.getElementById('image-preview-img');
-const removeImageBtn     = document.getElementById('remove-image-btn');
+const mediaGridWrapper   = document.getElementById('media-grid-wrapper');
+const mediaGrid          = document.getElementById('media-grid');
+const addMoreMediaBtn    = document.getElementById('add-more-media-btn');
+const clearAllMediaBtn   = document.getElementById('clear-all-media-btn');
 
 const postDescInput      = document.getElementById('post-desc-input');
 const postStyleSelect    = document.getElementById('post-style-select');
@@ -55,7 +56,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   postStyleSelect.value      = currentConfig.defaultPostStyle   || 'Professional';
 
   setupNavigation();
-  setupImageSelection();
+  setupMediaSelection();
   setupPostGeneration();
   setupPublishing();
   setupSettingsHandlers();
@@ -88,69 +89,155 @@ function showToast(message, type = 'info') {
 
 // ── Session Pill ─────────────────────────────────────────────
 function setSessionPill(state) {
-  // state: 'verified' | 'inactive' | 'unknown'
   sessionPill.className = `session-pill session-${state}`;
-  const labels = {
-    verified: 'Session verified',
-    inactive: 'Session not verified',
-    unknown:  'Session not verified'
-  };
+  const labels = { verified: 'Session verified', inactive: 'Session not verified', unknown: 'Session not verified' };
   sessionLabel.textContent = labels[state] || 'Session not verified';
 }
 
-// ── Image Selection ──────────────────────────────────────────
-function setupImageSelection() {
+// ── Media State Helpers ───────────────────────────────────────
+function refreshMediaGrid() {
+  mediaGrid.innerHTML = '';
+
+  if (currentMediaFiles.length === 0) {
+    mediaGridWrapper.classList.add('hidden');
+    dropZonePrompt.classList.remove('hidden');
+    return;
+  }
+
+  dropZonePrompt.classList.add('hidden');
+  mediaGridWrapper.classList.remove('hidden');
+
+  currentMediaFiles.forEach((file, index) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'media-thumb';
+
+    if (file.type === 'video') {
+      const video = document.createElement('video');
+      video.src = `file://${file.filePath}`;
+      video.muted = true;
+      video.preload = 'metadata';
+      // Seek to first frame for thumbnail
+      video.addEventListener('loadedmetadata', () => { video.currentTime = 0.1; });
+      thumb.appendChild(video);
+
+      const badge = document.createElement('span');
+      badge.className = 'video-badge';
+      badge.textContent = 'VIDEO';
+      thumb.appendChild(badge);
+    } else {
+      const img = document.createElement('img');
+      img.src = file.previewSrc || `file://${file.filePath}`;
+      img.alt = `Media ${index + 1}`;
+      thumb.appendChild(img);
+    }
+
+    // Remove button (appears on hover)
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-thumb-btn';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      currentMediaFiles.splice(index, 1);
+      refreshMediaGrid();
+      showToast('File removed.');
+    });
+    thumb.appendChild(removeBtn);
+
+    mediaGrid.appendChild(thumb);
+  });
+}
+
+function addMediaFiles(files) {
+  // files: array of { filePath, base64, type }
+  files.forEach(f => {
+    // Avoid duplicates by path
+    if (!currentMediaFiles.find(m => m.filePath === f.filePath)) {
+      currentMediaFiles.push({
+        filePath: f.filePath,
+        previewSrc: f.base64 || null,
+        type: f.type
+      });
+    }
+  });
+  refreshMediaGrid();
+}
+
+// ── Media Selection ───────────────────────────────────────────
+function setupMediaSelection() {
+  // Click anywhere on drop zone (when empty) to open picker
   dropZone.addEventListener('click', async (e) => {
-    if (e.target === removeImageBtn) return;
-    if (currentImagePath) return;
-    try {
-      const res = await window.elivaAPI.selectImage();
-      if (res && res.filePath) handleImageLoaded(res.filePath, res.base64);
-    } catch {
-      showToast('Failed to open image selector', 'error');
+    // Only trigger if clicking empty state (not the grid actions)
+    if (!dropZonePrompt.classList.contains('hidden')) {
+      await openMediaPicker();
     }
   });
 
+  // "Add More" button
+  addMoreMediaBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await openMediaPicker();
+  });
+
+  // "Clear All" button
+  clearAllMediaBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    currentMediaFiles = [];
+    refreshMediaGrid();
+    showToast('All media cleared.');
+  });
+
+  // Drag and Drop
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
     dropZone.classList.add('drag-over');
   });
-
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
 
-  dropZone.addEventListener('drop', (e) => {
+  dropZone.addEventListener('drop', async (e) => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
-    if (currentImagePath) return;
 
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      const file = files[0];
-      const ext  = file.name.split('.').pop().toLowerCase();
-      if (['jpg','jpeg','png','webp'].includes(ext)) {
-        handleImageLoaded(file.path, URL.createObjectURL(file));
-      } else {
-        showToast('Unsupported format. Use JPG, PNG, or WEBP.', 'error');
-      }
+    const files = Array.from(e.dataTransfer.files);
+    const VALID = ['jpg','jpeg','png','webp','gif','mp4','mov','avi','mkv','webm'];
+    const VIDEO_EXTS = new Set(['mp4','mov','avi','mkv','webm']);
+
+    const mapped = files
+      .filter(f => VALID.includes(f.name.split('.').pop().toLowerCase()))
+      .map(f => {
+        const ext = f.name.split('.').pop().toLowerCase();
+        const isVideo = VIDEO_EXTS.has(ext);
+        return {
+          filePath: f.path,
+          previewSrc: isVideo ? null : URL.createObjectURL(f),
+          type: isVideo ? 'video' : 'image'
+        };
+      });
+
+    if (mapped.length > 0) {
+      mapped.forEach(m => {
+        if (!currentMediaFiles.find(x => x.filePath === m.filePath)) {
+          currentMediaFiles.push(m);
+        }
+      });
+      refreshMediaGrid();
+      showToast(`${mapped.length} file(s) added.`, 'success');
+    } else {
+      showToast('No supported files found. Use JPG, PNG, MP4, MOV, etc.', 'error');
     }
-  });
-
-  removeImageBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    currentImagePath = null;
-    imagePreviewImg.src = '';
-    previewWrapper.classList.add('hidden');
-    dropZonePrompt.classList.remove('hidden');
-    showToast('Image removed.');
   });
 }
 
-function handleImageLoaded(filePath, previewSrc) {
-  currentImagePath = filePath;
-  imagePreviewImg.src = previewSrc || filePath;
-  previewWrapper.classList.remove('hidden');
-  dropZonePrompt.classList.add('hidden');
-  showToast('Image loaded.', 'success');
+async function openMediaPicker() {
+  try {
+    const results = await window.elivaAPI.selectMedia();
+    if (results && results.length > 0) {
+      addMediaFiles(results);
+      showToast(`${results.length} file(s) added.`, 'success');
+    }
+  } catch (err) {
+    showToast('Failed to open media picker.', 'error');
+  }
 }
 
 // ── Post Generation ──────────────────────────────────────────
@@ -169,7 +256,7 @@ function setupPostGeneration() {
     try {
       const result = await window.elivaAPI.generatePost(description, style);
 
-      // Merge hashtags inline at the end of the post body
+      // Merge hashtags inline
       const hashtagsInline = (result.hashtags || []).join(' ');
       const fullPost = hashtagsInline
         ? result.postContent.trimEnd() + '\n\n' + hashtagsInline
@@ -201,13 +288,8 @@ function setupPostGeneration() {
 }
 
 function setGeneratingState(isGenerating) {
-  if (isGenerating) {
-    generateBtn.textContent = 'Generating with AI...';
-    generateBtn.setAttribute('disabled', 'true');
-  } else {
-    generateBtn.textContent = 'Generate LinkedIn Post';
-    generateBtn.removeAttribute('disabled');
-  }
+  generateBtn.textContent = isGenerating ? 'Generating with AI...' : 'Generate LinkedIn Post';
+  isGenerating ? generateBtn.setAttribute('disabled', 'true') : generateBtn.removeAttribute('disabled');
 }
 
 // ── Publishing ───────────────────────────────────────────────
@@ -219,18 +301,17 @@ function setupPublishing() {
       return;
     }
 
+    // Collect file paths from currentMediaFiles
+    const mediaPaths = currentMediaFiles.map(f => f.filePath);
+
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
     closeModalBtn.setAttribute('disabled', 'true');
     closeModalBtn.textContent = 'Automating...';
 
     try {
-      const success = await window.elivaAPI.publishPost(textContent, currentImagePath);
-      if (success) {
-        showToast('Published to LinkedIn successfully.', 'success');
-      } else {
-        showToast('Posting failed. Check the automation log.', 'error');
-      }
+      const success = await window.elivaAPI.publishPost(textContent, mediaPaths);
+      showToast(success ? 'Published to LinkedIn successfully.' : 'Posting failed. Check the log.', success ? 'success' : 'error');
     } catch (err) {
       showToast('Automation error: ' + err.message, 'error');
     } finally {
@@ -259,11 +340,7 @@ function setupSettingsHandlers() {
   saveSettingsBtn.addEventListener('click', async () => {
     const apiKey = settingsApiKey.value.trim();
     const style  = settingsDefaultStyle.value;
-
-    if (!apiKey) {
-      showToast('A Gemini API key is required.', 'error');
-      return;
-    }
+    if (!apiKey) { showToast('A Gemini API key is required.', 'error'); return; }
 
     try {
       currentConfig = await window.elivaAPI.saveConfig({ geminiApiKey: apiKey, defaultPostStyle: style });
@@ -274,7 +351,6 @@ function setupSettingsHandlers() {
     }
   });
 
-  // Verify session
   const verifySession = async () => {
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
@@ -296,7 +372,6 @@ function setupSettingsHandlers() {
 
   checkSessionBtn.addEventListener('click', verifySession);
 
-  // Open persistent browser session (settings only)
   settingsLaunchBrowserBtn.addEventListener('click', async () => {
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');

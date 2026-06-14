@@ -71,7 +71,7 @@ export async function checkLinkedInSession(
 // ---------------------------------------------------------------------------
 export async function publishLinkedInPost(
   postContent: string,
-  imagePath: string | null,
+  mediaPaths: string[],          // array: images and/or videos
   onLog: LogCallback
 ): Promise<boolean> {
   const config = loadConfig();
@@ -95,51 +95,52 @@ export async function publishLinkedInPost(
     console.log(`[publishLinkedInPost] Final URL: ${url}`);
 
     if (!url.includes('/feed')) {
-      onLog({ status: 'error', message: `Not on LinkedIn feed (URL: ${url}). Please authenticate first via Settings → Test LinkedIn Session.` });
+      onLog({ status: 'error', message: `Not on LinkedIn feed (URL: ${url}). Please authenticate first via Settings.` });
       await context.close();
       return false;
     }
 
     onLog({ status: 'success', message: 'Logged in! Starting post creation...' });
 
-    if (imagePath) {
-      // ── Path A: Image post ────────────────────────────────────────────────
-      // STEP 1: Click the "Photo" button → This opens the "Editor" modal (empty)
-      onLog({ status: 'info', message: 'Clicking the Photo button — opening Editor modal...' });
+    const hasMedia = mediaPaths && mediaPaths.length > 0;
+
+    if (hasMedia) {
+      // ── Path A: Media post (images and/or video) ──────────────────────────
+      onLog({ status: 'info', message: `Media detected: ${mediaPaths.length} file(s). Clicking Photo/Video button...` });
+
       const photoBtn = await page.waitForSelector(
         '[data-view-name="share-sharebox-bottom-bar-image"]',
         { timeout: 15000 }
       );
       await photoBtn.click();
 
-      // STEP 2: Wait for the empty Editor modal ("Select files to begin")
-      // Then click "Upload from computer" to trigger the file chooser
-      onLog({ status: 'info', message: 'Editor modal opened. Clicking "Upload from computer"...' });
+      // Wait for empty Editor modal and click "Upload from computer"
+      onLog({ status: 'info', message: 'Editor modal opened. Clicking Upload from computer...' });
       const uploadBtn = await page.waitForSelector(
         'button:has-text("Upload from computer"), button:has-text("Upload"), label:has-text("Upload")',
         { timeout: 10000 }
       );
+
+      // Upload ALL files at once via the file chooser
       const [fileChooser] = await Promise.all([
         page.waitForEvent('filechooser', { timeout: 10000 }),
         uploadBtn.click()
       ]);
 
-      // STEP 3: Set the actual file — image preview will appear in the Editor
-      onLog({ status: 'info', message: `Uploading image: ${imagePath}` });
-      await fileChooser.setFiles(imagePath);
+      onLog({ status: 'info', message: `Uploading ${mediaPaths.length} file(s)...` });
+      await fileChooser.setFiles(mediaPaths);
 
-      // Wait for image preview to render inside the Editor
-      onLog({ status: 'info', message: 'Waiting for image preview to render...' });
-      await page.waitForTimeout(3000);
+      // Wait for LinkedIn to process the uploads (videos take longer)
+      const hasVideo = mediaPaths.some(p => /\.(mp4|mov|avi|mkv|webm)$/i.test(p));
+      const waitMs = hasVideo ? 8000 : 3000;
+      onLog({ status: 'info', message: `Waiting for media to process (${hasVideo ? 'video detected' : 'images'})...` });
+      await page.waitForTimeout(waitMs);
 
-      // STEP 4: Click "Next" to proceed to the post text composer
-      onLog({ status: 'info', message: 'Clicking Next to open post text editor...' });
-      const nextBtn = await page.waitForSelector(
-        'button:has-text("Next")',
-        { timeout: 20000 }
-      );
+      // Click "Next" to proceed to text editor
+      onLog({ status: 'info', message: 'Clicking Next...' });
+      const nextBtn = await page.waitForSelector('button:has-text("Next")', { timeout: 30000 });
       await nextBtn.click();
-      onLog({ status: 'info', message: 'Next clicked — post text composer is now open.' });
+      onLog({ status: 'info', message: 'Next clicked — post text composer is open.' });
       await page.waitForTimeout(2500);
 
     } else {
@@ -164,7 +165,6 @@ export async function publishLinkedInPost(
     await page.waitForTimeout(1000);
 
     // ── Click the Post button ─────────────────────────────────────────────
-    // Use state:'visible' so Playwright skips any hidden duplicates on the feed
     onLog({ status: 'info', message: 'Clicking the Post button...' });
     const postBtn = await page.waitForSelector(
       'button.share-actions__primary-action',
@@ -172,7 +172,6 @@ export async function publishLinkedInPost(
     );
     await postBtn.click();
 
-    // Wait for the modal to close = post submitted
     await page.waitForTimeout(5000);
     onLog({ status: 'success', message: '✅ Post published to LinkedIn successfully!' });
     await context.close();
