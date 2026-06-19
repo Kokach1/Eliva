@@ -213,14 +213,47 @@ export async function publishLinkedInPost(
       onLog({ status: 'info', message: `Waiting for media to process (${hasVideo ? 'video detected' : 'images'})...` });
       await page.waitForTimeout(waitMs);
 
-      // Click "Next" (or "Done" / "Apply") to proceed to text editor
-      onLog({ status: 'info', message: 'Clicking Next/Done...' });
-      const nextBtn = await page.waitForSelector(
-        'button.share-box-footer__primary-btn, button[aria-label="Next"], button:has-text("Next"), button:has-text("Done"), button:has-text("Apply"), button.share-box-image-editor__done-button',
-        { timeout: 30000 }
-      );
-      await nextBtn.click();
-      onLog({ status: 'info', message: 'Next clicked — post text composer is open.' });
+      // Click "Next" — LinkedIn's primary action footer button
+      // Strategy: look for artdeco-button--primary class (LinkedIn's design system), excluding vjs player buttons
+      onLog({ status: 'info', message: 'Clicking Next to go to caption editor...' });
+
+      // Try multiple specific selectors in order - most specific first
+      const nextSelectors = [
+        'button.share-box-footer__primary-btn.artdeco-button--primary',
+        'button.artdeco-button--primary[aria-label="Next"]',
+        'button.artdeco-button--primary:has-text("Next")',
+        'button.artdeco-button--primary:not(.vjs-done-button)',
+      ];
+
+      let nextClicked = false;
+      for (const sel of nextSelectors) {
+        try {
+          const btn = await page.waitForSelector(sel, { timeout: 5000, state: 'visible' });
+          if (btn) {
+            await btn.click();
+            nextClicked = true;
+            onLog({ status: 'info', message: `Clicked Next button via: ${sel}` });
+            break;
+          }
+        } catch {}
+      }
+
+      if (!nextClicked) {
+        // Last resort: use page.locator to find the footer primary button by text "Next" excluding vjs
+        const fallbackBtn = page.locator('button:has-text("Next"):not(.vjs-done-button)').first();
+        const isVisible = await fallbackBtn.isVisible();
+        if (isVisible) {
+          await fallbackBtn.click();
+          nextClicked = true;
+          onLog({ status: 'info', message: 'Clicked Next via fallback locator.' });
+        }
+      }
+
+      if (!nextClicked) {
+        throw new Error('Could not find the Next button to proceed to post caption editor.');
+      }
+
+      onLog({ status: 'info', message: 'Next clicked — post caption editor is open.' });
       await page.waitForTimeout(2500);
 
     } else {
