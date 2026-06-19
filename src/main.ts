@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { loadConfig, saveConfig, AppConfig } from './config';
 import { generateLinkedInPost } from './gemini';
 import { checkLinkedInSession, publishLinkedInPost, launchLinkedInBrowserSession } from './linkedin';
+import { loadHistory, addHistoryEntry, deleteHistoryEntry, clearHistory } from './history';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -132,3 +133,20 @@ ipcMain.handle('launch-browser-session', async () => {
   };
   return await launchLinkedInBrowserSession(onLog);
 });
+
+ipcMain.handle('load-history', () => {
+  return loadHistory();
+});
+
+ipcMain.handle('add-history', (_event, description: string, style: string, postContent: string, mediaFiles: Array<{ filePath: string; type: 'image' | 'video' }>) => {
+  return addHistoryEntry(description, style, postContent, mediaFiles);
+});
+
+ipcMain.handle('delete-history', (_event, id: string) => {
+  return deleteHistoryEntry(id);
+});
+
+ipcMain.handle('clear-history', () => {
+  return clearHistory();
+});
+

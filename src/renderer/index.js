@@ -4,8 +4,10 @@ let currentConfig    = null;
 
 // ── DOM References ───────────────────────────────────────────
 const tabDashboardBtn    = document.getElementById('tab-dashboard-btn');
+const tabHistoryBtn      = document.getElementById('tab-history-btn');
 const tabSettingsBtn     = document.getElementById('tab-settings-btn');
 const dashboardPage      = document.getElementById('dashboard-page');
+const historyPage        = document.getElementById('history-page');
 const settingsPage       = document.getElementById('settings-page');
 
 const dropZone           = document.getElementById('drop-zone');
@@ -46,6 +48,15 @@ const automationModal    = document.getElementById('automation-modal');
 const automationLogs     = document.getElementById('automation-logs');
 const closeModalBtn      = document.getElementById('close-modal-btn');
 
+// Media Fullscreen Preview Modal
+const previewModal          = document.getElementById('preview-modal');
+const closePreviewBtn       = document.getElementById('close-preview-btn');
+const previewMediaContainer = document.getElementById('preview-media-container');
+
+// History Elements
+const historyList         = document.getElementById('history-list');
+const clearAllHistoryBtn  = document.getElementById('clear-all-history-btn');
+
 // ── Initialise ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   currentConfig = await window.elivaAPI.loadConfig();
@@ -61,22 +72,38 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupPublishing();
   setupSettingsHandlers();
   setupAutomationLogger();
+  setupHistoryHandlers();
+  setupFullscreenPreview();
 });
 
 // ── Navigation ───────────────────────────────────────────────
 function setupNavigation() {
   tabDashboardBtn.addEventListener('click', () => {
     tabDashboardBtn.classList.add('active-tab-btn');
+    tabHistoryBtn.classList.remove('active-tab-btn');
     tabSettingsBtn.classList.remove('active-tab-btn');
     dashboardPage.classList.add('active-page');
+    historyPage.classList.remove('active-page');
     settingsPage.classList.remove('active-page');
+  });
+
+  tabHistoryBtn.addEventListener('click', () => {
+    tabHistoryBtn.classList.add('active-tab-btn');
+    tabDashboardBtn.classList.remove('active-tab-btn');
+    tabSettingsBtn.classList.remove('active-tab-btn');
+    historyPage.classList.add('active-page');
+    dashboardPage.classList.remove('active-page');
+    settingsPage.classList.remove('active-page');
+    refreshHistoryList();
   });
 
   tabSettingsBtn.addEventListener('click', () => {
     tabSettingsBtn.classList.add('active-tab-btn');
     tabDashboardBtn.classList.remove('active-tab-btn');
+    tabHistoryBtn.classList.remove('active-tab-btn');
     settingsPage.classList.add('active-page');
     dashboardPage.classList.remove('active-page');
+    historyPage.classList.remove('active-page');
   });
 }
 
@@ -110,13 +137,29 @@ function refreshMediaGrid() {
   currentMediaFiles.forEach((file, index) => {
     const thumb = document.createElement('div');
     thumb.className = 'media-thumb';
+    thumb.setAttribute('draggable', 'true');
+
+    // Drag events
+    thumb.addEventListener('dragstart', (e) => handleDragStart(e, index));
+    thumb.addEventListener('dragover', (e) => handleDragOver(e));
+    thumb.addEventListener('dragenter', (e) => handleDragEnter(e, index));
+    thumb.addEventListener('dragleave', (e) => handleDragLeave(e));
+    thumb.addEventListener('drop', (e) => handleDrop(e, index));
+    thumb.addEventListener('dragend', (e) => handleDragEnd(e));
+
+    // Full screen preview on click
+    thumb.addEventListener('click', (e) => {
+      if (e.target.closest('.remove-thumb-btn') || e.target.closest('.reorder-btn')) {
+        return;
+      }
+      openFullscreenPreview(file);
+    });
 
     if (file.type === 'video') {
       const video = document.createElement('video');
       video.src = `file://${file.filePath}`;
       video.muted = true;
       video.preload = 'metadata';
-      // Seek to first frame for thumbnail
       video.addEventListener('loadedmetadata', () => { video.currentTime = 0.1; });
       thumb.appendChild(video);
 
@@ -129,6 +172,37 @@ function refreshMediaGrid() {
       img.src = file.previewSrc || `file://${file.filePath}`;
       img.alt = `Media ${index + 1}`;
       thumb.appendChild(img);
+    }
+
+    // Reorder buttons (Move Left / Move Right)
+    if (index > 0) {
+      const leftBtn = document.createElement('button');
+      leftBtn.className = 'reorder-btn move-left-btn';
+      leftBtn.innerHTML = '‹';
+      leftBtn.title = 'Move Left';
+      leftBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const [moved] = currentMediaFiles.splice(index, 1);
+        currentMediaFiles.splice(index - 1, 0, moved);
+        refreshMediaGrid();
+        showToast('Media reordered.');
+      });
+      thumb.appendChild(leftBtn);
+    }
+
+    if (index < currentMediaFiles.length - 1) {
+      const rightBtn = document.createElement('button');
+      rightBtn.className = 'reorder-btn move-right-btn';
+      rightBtn.innerHTML = '›';
+      rightBtn.title = 'Move Right';
+      rightBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const [moved] = currentMediaFiles.splice(index, 1);
+        currentMediaFiles.splice(index + 1, 0, moved);
+        refreshMediaGrid();
+        showToast('Media reordered.');
+      });
+      thumb.appendChild(rightBtn);
     }
 
     // Remove button (appears on hover)
@@ -301,13 +375,22 @@ function setupPublishing() {
       return;
     }
 
-    // Collect file paths from currentMediaFiles
-    const mediaPaths = currentMediaFiles.map(f => f.filePath);
+    const description = postDescInput.value.trim();
+    const style       = postStyleSelect.value;
+    const mediaFiles  = currentMediaFiles.map(f => ({ filePath: f.filePath, type: f.type }));
+    const mediaPaths  = currentMediaFiles.map(f => f.filePath);
 
     automationLogs.innerHTML = '';
     automationModal.classList.remove('hidden');
     closeModalBtn.setAttribute('disabled', 'true');
     closeModalBtn.textContent = 'Automating...';
+
+    // Add to History
+    try {
+      await window.elivaAPI.addHistory(description, style, textContent, mediaFiles);
+    } catch (historyErr) {
+      console.error('Failed to save to history:', historyErr);
+    }
 
     try {
       const success = await window.elivaAPI.publishPost(textContent, mediaPaths);
@@ -391,3 +474,250 @@ function setupSettingsHandlers() {
     }
   });
 }
+
+// ── Drag & Drop Reordering ────────────────────────────────────
+let draggedIndex = null;
+
+function handleDragStart(e, index) {
+  draggedIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+  e.target.classList.add('dragging');
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  return false;
+}
+
+function handleDragEnter(e, index) {
+  if (index !== draggedIndex) {
+    e.currentTarget.classList.add('drag-over-thumb');
+  }
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over-thumb');
+}
+
+function handleDrop(e, targetIndex) {
+  e.preventDefault();
+  e.stopPropagation();
+  e.currentTarget.classList.remove('drag-over-thumb');
+
+  if (draggedIndex !== null && draggedIndex !== targetIndex) {
+    const [moved] = currentMediaFiles.splice(draggedIndex, 1);
+    currentMediaFiles.splice(targetIndex, 0, moved);
+    refreshMediaGrid();
+    showToast('Media reordered.');
+  }
+}
+
+function handleDragEnd(e) {
+  e.target.classList.remove('dragging');
+  draggedIndex = null;
+}
+
+// ── Fullscreen Media Preview Modal ──────────────────────────
+function setupFullscreenPreview() {
+  closePreviewBtn.addEventListener('click', () => {
+    previewModal.classList.add('hidden');
+    previewMediaContainer.innerHTML = '';
+  });
+
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) {
+      previewModal.classList.add('hidden');
+      previewMediaContainer.innerHTML = '';
+    }
+  });
+}
+
+function openFullscreenPreview(file) {
+  previewMediaContainer.innerHTML = '';
+  if (file.type === 'video') {
+    const video = document.createElement('video');
+    video.src = `file://${file.filePath}`;
+    video.controls = true;
+    video.autoplay = true;
+    previewMediaContainer.appendChild(video);
+  } else {
+    const img = document.createElement('img');
+    img.src = file.previewSrc || `file://${file.filePath}`;
+    img.alt = 'Fullscreen Preview';
+    previewMediaContainer.appendChild(img);
+  }
+  previewModal.classList.remove('hidden');
+}
+
+// ── History Management ────────────────────────────────────────
+function setupHistoryHandlers() {
+  clearAllHistoryBtn.addEventListener('click', async () => {
+    if (confirm('Are you sure you want to clear all history? This will delete all saved media files.')) {
+      try {
+        await window.elivaAPI.clearHistory();
+        refreshHistoryList();
+        showToast('History cleared.', 'success');
+      } catch (err) {
+        showToast('Failed to clear history: ' + err.message, 'error');
+      }
+    }
+  });
+}
+
+async function refreshHistoryList() {
+  historyList.innerHTML = '';
+
+  try {
+    const items = await window.elivaAPI.loadHistory();
+
+    if (!items || items.length === 0) {
+      historyList.innerHTML = `
+        <div class="history-empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3>No History Yet</h3>
+          <p>Generate and publish posts on the Dashboard to see them here.</p>
+        </div>
+      `;
+      return;
+    }
+
+    items.forEach(item => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'history-item';
+
+      // Header row
+      const headerRow = document.createElement('div');
+      headerRow.className = 'history-item-header';
+
+      const meta = document.createElement('div');
+      meta.className = 'history-item-meta';
+
+      const dateSp = document.createElement('span');
+      dateSp.className = 'history-item-date';
+      dateSp.textContent = item.timestamp;
+      meta.appendChild(dateSp);
+
+      const styleSp = document.createElement('span');
+      styleSp.className = 'history-item-style';
+      styleSp.textContent = item.style;
+      meta.appendChild(styleSp);
+
+      headerRow.appendChild(meta);
+
+      const actions = document.createElement('div');
+      actions.className = 'history-item-actions';
+
+      const restoreBtn = document.createElement('button');
+      restoreBtn.className = 'btn btn-secondary btn-sm';
+      restoreBtn.textContent = 'Restore to Editor';
+      restoreBtn.addEventListener('click', () => {
+        restoreHistoryItem(item);
+      });
+      actions.appendChild(restoreBtn);
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn-danger btn-sm';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', async () => {
+        if (confirm('Delete this history entry?')) {
+          try {
+            await window.elivaAPI.deleteHistory(item.id);
+            refreshHistoryList();
+            showToast('History entry deleted.');
+          } catch (err) {
+            showToast('Delete failed: ' + err.message, 'error');
+          }
+        }
+      });
+      actions.appendChild(deleteBtn);
+
+      headerRow.appendChild(actions);
+      itemEl.appendChild(headerRow);
+
+      // Prompt/Description
+      if (item.description) {
+        const promptEl = document.createElement('div');
+        promptEl.className = 'history-item-prompt';
+        promptEl.textContent = `Prompt: "${item.description}"`;
+        itemEl.appendChild(promptEl);
+      }
+
+      // Generated content
+      const contentEl = document.createElement('div');
+      contentEl.className = 'history-item-content';
+      contentEl.textContent = item.postContent;
+      itemEl.appendChild(contentEl);
+
+      // Media previews
+      if (item.media && item.media.length > 0) {
+        const mediaContainer = document.createElement('div');
+        mediaContainer.className = 'history-item-media';
+
+        item.media.forEach(m => {
+          if (m.type === 'video') {
+            const videoContainer = document.createElement('div');
+            videoContainer.style.position = 'relative';
+            videoContainer.style.display = 'inline-block';
+
+            const videoEl = document.createElement('video');
+            videoEl.src = `file://${m.savedPath}`;
+            videoEl.className = 'history-media-thumb';
+            videoEl.muted = true;
+            videoEl.preload = 'metadata';
+            videoEl.addEventListener('loadedmetadata', () => { videoEl.currentTime = 0.1; });
+            videoContainer.appendChild(videoEl);
+
+            const badge = document.createElement('span');
+            badge.className = 'video-badge';
+            badge.textContent = 'VIDEO';
+            badge.style.fontSize = '7px';
+            badge.style.padding = '1px 3px';
+            badge.style.bottom = '2px';
+            badge.style.left = '2px';
+            videoContainer.appendChild(badge);
+
+            mediaContainer.appendChild(videoContainer);
+          } else {
+            const imgEl = document.createElement('img');
+            imgEl.className = 'history-media-thumb';
+            imgEl.src = m.base64 || `file://${m.savedPath}`;
+            imgEl.alt = 'History media';
+            mediaContainer.appendChild(imgEl);
+          }
+        });
+
+        itemEl.appendChild(mediaContainer);
+      }
+
+      historyList.appendChild(itemEl);
+    });
+
+  } catch (err) {
+    showToast('Failed to load history: ' + err.message, 'error');
+  }
+}
+
+function restoreHistoryItem(item) {
+  postDescInput.value = item.description || '';
+  postStyleSelect.value = item.style || 'Professional';
+  generatedPostText.value = item.postContent || '';
+
+  // Restore current media files pointing to persistent copy paths
+  currentMediaFiles = (item.media || []).map(m => ({
+    filePath: m.savedPath,
+    previewSrc: m.base64 || null,
+    type: m.type
+  }));
+
+  // Re-enable editor fields
+  generatedPostText.removeAttribute('readonly');
+  regenerateBtn.removeAttribute('disabled');
+  publishBtn.removeAttribute('disabled');
+
+  refreshMediaGrid();
+
+  // Switch to Dashboard
+  tabDashboardBtn.click();
+  showToast('Post restored to editor!', 'success');
+}
+

@@ -32,6 +32,7 @@
 
       <div class="nav-buttons">
         <button id="tab-dashboard-btn" class="nav-btn active-tab-btn">Dashboard</button>
+        <button id="tab-history-btn" class="nav-btn">History</button>
         <button id="tab-settings-btn" class="nav-btn">Settings</button>
       </div>
     </header>
@@ -155,6 +156,30 @@
         </div>
       </section>
 
+      <!-- History Page -->
+      <section id="history-page" class="workspace-page">
+        <div class="history-container">
+          <div class="card card-3d history-card-wide">
+            <div class="history-header-row">
+              <div>
+                <h2>Post History</h2>
+                <p class="history-intro">Revisit, edit, or publish your last 20 generated posts.</p>
+              </div>
+              <button id="clear-all-history-btn" class="btn btn-danger btn-sm">Clear All History</button>
+            </div>
+
+            <div id="history-list" class="history-list">
+              <!-- History items will be injected here -->
+              <div class="history-empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <h3>No History Yet</h3>
+                <p>Generate and publish posts on the Dashboard to see them here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <!-- Toast Notification -->
@@ -179,6 +204,14 @@
         <div class="modal-footer">
           <button id="close-modal-btn" class="btn btn-secondary" disabled>Wait for Completion</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Media Preview Modal -->
+    <div id="preview-modal" class="modal-overlay hidden">
+      <div class="preview-modal-card card-3d">
+        <button id="close-preview-btn" class="close-preview-btn">×</button>
+        <div id="preview-media-container"></div>
       </div>
     </div>
 
