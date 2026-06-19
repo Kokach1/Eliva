@@ -3,6 +3,7 @@ import { AppConfig } from './config';
 import { GenerationResult } from './gemini';
 
 contextBridge.exposeInMainWorld('elivaAPI', {
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   loadConfig: () => ipcRenderer.invoke('load-config'),
   saveConfig: (config: Partial<AppConfig>) => ipcRenderer.invoke('save-config', config),
   generatePost: (description: string, style: string) => ipcRenderer.invoke('generate-post', description, style),

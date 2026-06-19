@@ -57,6 +57,9 @@ const previewMediaContainer = document.getElementById('preview-media-container')
 const historyList         = document.getElementById('history-list');
 const clearAllHistoryBtn  = document.getElementById('clear-all-history-btn');
 
+// Version Label
+const appVersionLabel     = document.getElementById('app-version-label');
+
 // ── Initialise ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   currentConfig = await window.elivaAPI.loadConfig();
@@ -65,6 +68,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   settingsProfileDir.value   = currentConfig.linkedinProfileDir || '';
   settingsDefaultStyle.value = currentConfig.defaultPostStyle   || 'Professional';
   postStyleSelect.value      = currentConfig.defaultPostStyle   || 'Professional';
+
+  // Load app version
+  try {
+    const version = await window.elivaAPI.getAppVersion();
+    appVersionLabel.textContent = `Version ${version}`;
+  } catch (err) {
+    appVersionLabel.textContent = 'Version 1.1.0';
+  }
 
   setupNavigation();
   setupMediaSelection();

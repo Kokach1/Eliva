@@ -56,6 +56,10 @@ app.on('window-all-closed', () => {
 });
 
 // IPC Handlers
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.handle('load-config', () => {
   return loadConfig();
 });

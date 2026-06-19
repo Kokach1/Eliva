@@ -216,7 +216,7 @@ export async function publishLinkedInPost(
       // Click "Next" (or "Done" / "Apply") to proceed to text editor
       onLog({ status: 'info', message: 'Clicking Next/Done...' });
       const nextBtn = await page.waitForSelector(
-        'button:has-text("Next"), button:has-text("Done"), button:has-text("Apply"), button.share-box-image-editor__done-button',
+        'button.share-box-footer__primary-btn, button[aria-label="Next"], button:has-text("Next"), button:has-text("Done"), button:has-text("Apply"), button.share-box-image-editor__done-button',
         { timeout: 30000 }
       );
       await nextBtn.click();
