@@ -106,29 +106,101 @@ export async function publishLinkedInPost(
 
     if (hasMedia) {
       // ── Path A: Media post (images and/or video) ──────────────────────────
-      onLog({ status: 'info', message: `Media detected: ${mediaPaths.length} file(s). Clicking Photo/Video button...` });
+      onLog({ status: 'info', message: `Media detected: ${mediaPaths.length} file(s). Locating Photo/Media button...` });
 
-      const photoBtn = await page.waitForSelector(
+      let photoBtn = null;
+      const photoSelectors = [
         '[data-view-name="share-sharebox-bottom-bar-image"]',
-        { timeout: 15000 }
-      );
+        'button.share-box-feed-entry__button:has-text("Photo")',
+        'button.share-box-feed-entry__button:has-text("Media")',
+        'button:has-text("Photo")',
+        'button:has-text("Media")',
+        'button[aria-label*="photo" i]',
+        'button[aria-label*="media" i]',
+        '[data-view-name="share-sharebox-bottom-bar-video"]'
+      ];
+
+      // Try to find the button directly on the feed page first
+      for (const selector of photoSelectors) {
+        try {
+          photoBtn = await page.waitForSelector(selector, { timeout: 1500, state: 'visible' });
+          if (photoBtn) {
+            onLog({ status: 'info', message: `Found media button on feed: ${selector}` });
+            break;
+          }
+        } catch {}
+      }
+
+      // If not found, open the composer modal first, then find the photo button inside it
+      if (!photoBtn) {
+        onLog({ status: 'info', message: 'Media button not found directly on feed. Opening post composer first...' });
+        const startSelectors = [
+          '[data-view-name="share-sharebox-focus"]',
+          'button.share-box-feed-entry__trigger',
+          'button:has-text("Start a post")',
+          'div.share-box-feed-entry__top-bar'
+        ];
+        
+        let startBtn = null;
+        for (const selector of startSelectors) {
+          try {
+            startBtn = await page.waitForSelector(selector, { timeout: 2000, state: 'visible' });
+            if (startBtn) {
+              await startBtn.click();
+              onLog({ status: 'info', message: 'Opened post composer modal.' });
+              await page.waitForTimeout(2000);
+              break;
+            }
+          } catch {}
+        }
+
+        // Now search for the photo/media button inside the opened modal
+        for (const selector of photoSelectors) {
+          try {
+            photoBtn = await page.waitForSelector(selector, { timeout: 2000, state: 'visible' });
+            if (photoBtn) {
+              onLog({ status: 'info', message: `Found media button inside modal: ${selector}` });
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      if (!photoBtn) {
+        throw new Error('Could not locate the Photo/Media button on the feed or inside the post composer.');
+      }
+
       await photoBtn.click();
 
       // Wait for empty Editor modal and click "Upload from computer"
-      onLog({ status: 'info', message: 'Editor modal opened. Clicking Upload from computer...' });
-      const uploadBtn = await page.waitForSelector(
-        'button:has-text("Upload from computer"), button:has-text("Upload"), label:has-text("Upload")',
-        { timeout: 10000 }
-      );
+      onLog({ status: 'info', message: 'Editor modal opened. Preparing file upload...' });
+      
+      let uploaded = false;
+      // Try to upload directly via input[type="file"] if present
+      try {
+        const fileInput = await page.waitForSelector('input[type="file"]', { timeout: 2000 });
+        if (fileInput) {
+          onLog({ status: 'info', message: `Uploading ${mediaPaths.length} file(s) directly...` });
+          await fileInput.setInputFiles(mediaPaths);
+          uploaded = true;
+        }
+      } catch {}
 
-      // Upload ALL files at once via the file chooser
-      const [fileChooser] = await Promise.all([
-        page.waitForEvent('filechooser', { timeout: 10000 }),
-        uploadBtn.click()
-      ]);
+      if (!uploaded) {
+        const uploadBtn = await page.waitForSelector(
+          'button:has-text("Upload from computer"), button:has-text("Upload"), label:has-text("Upload"), button:has-text("Select files to begin")',
+          { timeout: 10000 }
+        );
 
-      onLog({ status: 'info', message: `Uploading ${mediaPaths.length} file(s)...` });
-      await fileChooser.setFiles(mediaPaths);
+        // Upload ALL files at once via the file chooser
+        const [fileChooser] = await Promise.all([
+          page.waitForEvent('filechooser', { timeout: 10000 }),
+          uploadBtn.click()
+        ]);
+
+        onLog({ status: 'info', message: `Uploading ${mediaPaths.length} file(s) via file chooser...` });
+        await fileChooser.setFiles(mediaPaths);
+      }
 
       // Wait for LinkedIn to process the uploads (videos take longer)
       const hasVideo = mediaPaths.some(p => /\.(mp4|mov|avi|mkv|webm)$/i.test(p));
@@ -136,9 +208,12 @@ export async function publishLinkedInPost(
       onLog({ status: 'info', message: `Waiting for media to process (${hasVideo ? 'video detected' : 'images'})...` });
       await page.waitForTimeout(waitMs);
 
-      // Click "Next" to proceed to text editor
-      onLog({ status: 'info', message: 'Clicking Next...' });
-      const nextBtn = await page.waitForSelector('button:has-text("Next")', { timeout: 30000 });
+      // Click "Next" (or "Done" / "Apply") to proceed to text editor
+      onLog({ status: 'info', message: 'Clicking Next/Done...' });
+      const nextBtn = await page.waitForSelector(
+        'button:has-text("Next"), button:has-text("Done"), button:has-text("Apply"), button.share-box-image-editor__done-button',
+        { timeout: 30000 }
+      );
       await nextBtn.click();
       onLog({ status: 'info', message: 'Next clicked — post text composer is open.' });
       await page.waitForTimeout(2500);
