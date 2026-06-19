@@ -111,13 +111,16 @@ export async function publishLinkedInPost(
       let photoBtn = null;
       const photoSelectors = [
         '[data-view-name="share-sharebox-bottom-bar-image"]',
-        'button.share-box-feed-entry__button:has-text("Photo")',
-        'button.share-box-feed-entry__button:has-text("Media")',
+        'div[role="button"]:has-text("Photo")',
+        'div[role="button"]:has-text("Media")',
         'button:has-text("Photo")',
         'button:has-text("Media")',
         'button[aria-label*="photo" i]',
         'button[aria-label*="media" i]',
-        '[data-view-name="share-sharebox-bottom-bar-video"]'
+        '[id="image-medium"]',
+        '[data-view-name="share-sharebox-bottom-bar-video"]',
+        'text=Photo',
+        'text=Media'
       ];
 
       // Try to find the button directly on the feed page first
@@ -136,9 +139,11 @@ export async function publishLinkedInPost(
         onLog({ status: 'info', message: 'Media button not found directly on feed. Opening post composer first...' });
         const startSelectors = [
           '[data-view-name="share-sharebox-focus"]',
-          'button.share-box-feed-entry__trigger',
+          '[aria-label="Start a post"]',
+          'div[role="button"]:has-text("Start a post")',
           'button:has-text("Start a post")',
-          'div.share-box-feed-entry__top-bar'
+          'button.share-box-feed-entry__trigger',
+          'text=Start a post'
         ];
         
         let startBtn = null;
@@ -221,11 +226,29 @@ export async function publishLinkedInPost(
     } else {
       // ── Path B: Text-only post ────────────────────────────────────────────
       onLog({ status: 'info', message: 'Opening post composer (text only)...' });
-      const startBtn = await page.waitForSelector(
+      const startSelectors = [
         '[data-view-name="share-sharebox-focus"]',
-        { timeout: 15000 }
-      );
-      await startBtn.click();
+        '[aria-label="Start a post"]',
+        'div[role="button"]:has-text("Start a post")',
+        'button:has-text("Start a post")',
+        'button.share-box-feed-entry__trigger',
+        'text=Start a post'
+      ];
+      
+      let startBtn = null;
+      for (const selector of startSelectors) {
+        try {
+          startBtn = await page.waitForSelector(selector, { timeout: 2000, state: 'visible' });
+          if (startBtn) {
+            await startBtn.click();
+            break;
+          }
+        } catch {}
+      }
+
+      if (!startBtn) {
+        throw new Error('Could not locate the Start a Post button on the LinkedIn feed.');
+      }
       await page.waitForTimeout(2000);
     }
 
